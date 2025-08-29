@@ -113,6 +113,54 @@
             webxrButtonsContainer.appendChild(VRButton.createButton(renderer));
             webxrButtonsContainer.appendChild(ARButton.createButton(renderer));
 
+            let originalModelInfo = null;
+            renderer.xr.addEventListener('sessionstart', () => {
+                console.log('VR session started.');
+                const model = scene.getObjectByName('user_model');
+                if (model) {
+                    // Store original scale and position
+                    originalModelInfo = {
+                        scale: model.scale.clone(),
+                        position: model.position.clone()
+                    };
+
+                    // Calculate bounding box and size
+                    const box = new THREE.Box3().setFromObject(model);
+                    const size = new THREE.Vector3();
+                    box.getSize(size);
+                    const maxDim = Math.max(size.x, size.y, size.z);
+
+                    // Avoid division by zero if model has no size
+                    if (maxDim > 0) {
+                        // Target size for VR (e.g., 1.5 meters on its longest side)
+                        const targetSize = 1.5;
+                        const scaleFactor = targetSize / maxDim;
+                        model.scale.set(scaleFactor, scaleFactor, scaleFactor);
+                    }
+
+                    // Reposition the model to be centered at a comfortable viewing distance
+                    model.position.set(0, 1.5, -2);
+                }
+            });
+
+            renderer.xr.addEventListener('sessionend', () => {
+                console.log('VR session ended.');
+                const model = scene.getObjectByName('user_model');
+                if (model && originalModelInfo) {
+                    model.scale.copy(originalModelInfo.scale);
+                    model.position.copy(originalModelInfo.position);
+                    originalModelInfo = null; // Clear it for the next session
+
+                    // Re-frame the camera for the 2D view
+                    const box = new THREE.Box3().setFromObject(model);
+                    const boxSize = box.getSize(new THREE.Vector3()).length();
+                    const boxCenter = box.getCenter(new THREE.Vector3());
+                    frameArea(boxSize * 1.2, boxSize, boxCenter, camera);
+                    controls.target.copy(boxCenter);
+                    controls.update();
+                }
+            });
+
             const fov = 45;
             const aspect = 2;  // the canvas default
             const near = 0.1;
