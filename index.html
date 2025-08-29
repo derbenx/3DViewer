@@ -113,7 +113,7 @@
             });
 
             const canvas = document.querySelector('#c');
-            const renderer = new THREE.WebGLRenderer({canvas, antialias: true});
+            const renderer = new THREE.WebGLRenderer({canvas, antialias: true, alpha: true});
             renderer.xr.enabled = true;
 
             const webxrButtonsContainer = document.getElementById('webxr-buttons');
@@ -121,8 +121,14 @@
             webxrButtonsContainer.appendChild(ARButton.createButton(renderer));
 
             let originalModelInfo = null;
-            renderer.xr.addEventListener('sessionstart', () => {
-                console.log('VR session started.');
+            renderer.xr.addEventListener('sessionstart', async () => {
+                const session = renderer.xr.getSession();
+                console.log('XR session started. Mode:', session.environmentBlendMode);
+
+                if (session.environmentBlendMode === 'additive' || session.environmentBlendMode === 'alpha-blend') {
+                    scene.background = null;
+                }
+
                 const model = scene.getObjectByName('user_model');
                 if (model) {
                     // Store original scale and position
@@ -157,7 +163,8 @@
             });
 
             renderer.xr.addEventListener('sessionend', () => {
-                console.log('VR session ended.');
+                console.log('XR session ended.');
+                scene.background = new THREE.Color('black');
                 const model = scene.getObjectByName('user_model');
                 if (model && originalModelInfo) {
                     model.scale.copy(originalModelInfo.scale);
@@ -196,12 +203,12 @@
             const controllerGrip1 = renderer.xr.getControllerGrip(0);
             const model1 = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0, -1)]), new THREE.LineBasicMaterial({color: 0xff0000, linewidth: 5}));
             controllerGrip1.add(model1);
-            // The grip is already a child of the controller, no need to add to scene directly
+            scene.add(controllerGrip1);
 
             const controllerGrip2 = renderer.xr.getControllerGrip(1);
             const model2 = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0, -1)]), new THREE.LineBasicMaterial({color: 0x0000ff, linewidth: 5}));
             controllerGrip2.add(model2);
-            // The grip is already a child of the controller, no need to add to scene directly
+            scene.add(controllerGrip2);
 
             let gripPressed = [false, false];
             let triggerPressed = [false, false];
@@ -321,7 +328,17 @@
                 if (renderer.xr.isPresenting) {
                     for (let i = 0; i < 2; i++) {
                         const controller = renderer.xr.getController(i);
-                        if (controller.gamepad && controller.gamepad.axes.length >= 4) {
+
+                        // Debugging logs
+                        if (i === 0) { // Log a frame separator once per frame
+                            console.log(`--- Frame Update ---`);
+                        }
+                        console.log(`Controller ${i}:`, controller);
+                        if (controller) {
+                            console.log(`- Gamepad[${i}]:`, controller.gamepad);
+                        }
+
+                        if (controller && controller.gamepad && controller.gamepad.axes.length >= 4) {
                             if (gripPressed[i]) {
                                 // Model rotation and scaling
                                 const model = scene.getObjectByName('user_model');
