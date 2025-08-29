@@ -351,17 +351,46 @@
 
             const listContainer = document.getElementById('sample-models-list');
             listContainer.addEventListener('click', (event) => {
-                if (event.target.tagName === 'BUTTON') {
-                    const modelPath = event.target.dataset.path;
-                    if (modelPath) {
-                        gltfLoader.load(modelPath, (gltf) => {
-                            setModel(gltf.scene);
-                        }, undefined, (error) => {
-                            console.error('An error happened while loading the model:', error);
-                            alert('Could not load model. See console for details.');
-                        });
-                    }
+                if (event.target.tagName !== 'BUTTON') return;
+
+                const modelPath = event.target.dataset.path;
+                if (!modelPath) return;
+
+                const extension = modelPath.split('.').pop().toLowerCase();
+                let loader;
+                let onLoad;
+
+                switch (extension) {
+                    case 'gltf':
+                    case 'glb':
+                        loader = gltfLoader;
+                        onLoad = (gltf) => setModel(gltf.scene);
+                        break;
+                    case 'fbx':
+                        loader = fbxLoader;
+                        onLoad = (object) => setModel(object);
+                        break;
+                    case 'obj':
+                        loader = objLoader;
+                        onLoad = (object) => setModel(object);
+                        break;
+                    case 'stl':
+                        loader = stlLoader;
+                        onLoad = (geometry) => {
+                            const material = new THREE.MeshStandardMaterial({color: 0xAAAAAA, metalness: 0.1, roughness: 0.75});
+                            const mesh = new THREE.Mesh(geometry, material);
+                            setModel(mesh);
+                        };
+                        break;
+                    default:
+                        alert(`Unsupported file type for sample model: .${extension}`);
+                        return;
                 }
+
+                loader.load(modelPath, onLoad, undefined, (error) => {
+                    console.error(`An error happened while loading the model ${modelPath}:`, error);
+                    alert(`Could not load model ${modelPath}. See console for details.`);
+                });
             });
 
             function frameArea(sizeToFitOnScreen, boxSize, boxCenter, camera) {
