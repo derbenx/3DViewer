@@ -25,10 +25,16 @@
         import * as THREE from 'three';
         import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
         import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        import { VRButton } from 'three/addons/webxr/VRButton.js';
+        import { ARButton } from 'three/addons/webxr/ARButton.js';
 
         function main() {
             const canvas = document.querySelector('#c');
             const renderer = new THREE.WebGLRenderer({canvas, antialias: true});
+            renderer.xr.enabled = true;
+
+            document.body.appendChild(VRButton.createButton(renderer));
+            document.body.appendChild(ARButton.createButton(renderer));
 
             const fov = 45;
             const aspect = 2;  // the canvas default
@@ -130,10 +136,9 @@
                     camera.updateProjectionMatrix();
                 }
                 renderer.render(scene, camera);
-                requestAnimationFrame(render);
             }
 
-            requestAnimationFrame(render);
+            renderer.setAnimationLoop(render);
         }
 
         main();
