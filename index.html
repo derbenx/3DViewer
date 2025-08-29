@@ -213,11 +213,19 @@
             let gripPressed = [false, false];
             let triggerPressed = [false, false];
 
+            controller1.addEventListener('connected', function ( event ) {
+                console.log('Controller 0 Connected.');
+                this.gamepad = event.data.gamepad;
+            } );
             controller1.addEventListener('selectstart', () => { triggerPressed[0] = true; });
             controller1.addEventListener('selectend', () => { triggerPressed[0] = false; });
             controller1.addEventListener('squeezestart', () => { gripPressed[0] = true; });
             controller1.addEventListener('squeezeend', () => { gripPressed[0] = false; });
 
+            controller2.addEventListener('connected', function ( event ) {
+                console.log('Controller 1 Connected.');
+                this.gamepad = event.data.gamepad;
+            } );
             controller2.addEventListener('selectstart', () => { triggerPressed[1] = true; });
             controller2.addEventListener('selectend', () => { triggerPressed[1] = false; });
             controller2.addEventListener('squeezestart', () => { gripPressed[1] = true; });
@@ -328,15 +336,6 @@
                 if (renderer.xr.isPresenting) {
                     for (let i = 0; i < 2; i++) {
                         const controller = renderer.xr.getController(i);
-
-                        // Debugging logs
-                        if (i === 0) { // Log a frame separator once per frame
-                            console.log(`--- Frame Update ---`);
-                        }
-                        console.log(`Controller ${i}:`, controller);
-                        if (controller) {
-                            console.log(`- Gamepad[${i}]:`, controller.gamepad);
-                        }
 
                         if (controller && controller.gamepad && controller.gamepad.axes.length >= 4) {
                             if (gripPressed[i]) {
