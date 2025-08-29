@@ -52,10 +52,17 @@
             margin-bottom: 15px;
         }
 
+        #webxr-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 10px; /* Add some space between the buttons */
+        }
+
         #webxr-buttons button {
+            position: static !important; /* Override library's inline absolute positioning */
+            width: 100% !important;
+            margin: 0 !important;
             display: block;
-            width: 100%;
-            margin-bottom: 10px;
             background-color: #444;
             color: white;
             border: 1px solid #555;
@@ -138,8 +145,13 @@
                         model.scale.set(scaleFactor, scaleFactor, scaleFactor);
                     }
 
-                    // Reposition the model to be centered at a comfortable viewing distance
-                    model.position.set(0, 1.5, -2);
+                    // After scaling, get the new bounding box size
+                    const vrBox = new THREE.Box3().setFromObject(model);
+                    const vrSize = new THREE.Vector3();
+                    vrBox.getSize(vrSize);
+
+                    // Reposition the model to be on the floor and in front of the user
+                    model.position.set(0, vrSize.y / 2, -2);
                 }
             });
 
@@ -172,6 +184,8 @@
             controls.target.set(0, 1, 0);
             controls.update();
 
+            const scene = new THREE.Scene();
+
             // VR Controllers Setup
             const controller1 = renderer.xr.getController(0);
             scene.add(controller1);
@@ -200,9 +214,6 @@
             controller2.addEventListener('selectend', () => { triggerPressed[1] = false; });
             controller2.addEventListener('squeezestart', () => { gripPressed[1] = true; });
             controller2.addEventListener('squeezeend', () => { gripPressed[1] = false; });
-
-
-            const scene = new THREE.Scene();
             scene.background = new THREE.Color('black');
 
             {
@@ -328,8 +339,8 @@
                                         model.scale.multiplyScalar(scaleFactor);
                                     }
                                 }
-                            } else {
-                                // Locomotion
+                            } else if (!triggerPressed[i]) {
+                                // Locomotion (only if trigger is not held)
                                 const x = controller.gamepad.axes[2];
                                 const z = controller.gamepad.axes[3];
                                 const speed = 2; // meters per second
@@ -356,6 +367,14 @@
                                     if (Math.abs(y) > deadzone) {
                                         model.position.y -= y * speed * timeDelta;
                                     }
+                                }
+                            }
+
+                            // Exit VR button (A/X button)
+                            if (controller.gamepad.buttons.length > 4 && controller.gamepad.buttons[4].pressed) {
+                                const session = renderer.xr.getSession();
+                                if (session) {
+                                    session.end();
                                 }
                             }
                         }
