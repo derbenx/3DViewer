@@ -81,7 +81,7 @@
     <div id="side-panel">
         <button id="panel-toggle-button">☰</button>
         <div id="panel-content">
-            <input type="file" id="file-input" />
+            <input type="file" id="file-input" accept=".gltf,.glb,.fbx,.obj,.stl" />
             <div id="webxr-buttons"></div>
             <hr>
             <h4>Sample Models</h4>
@@ -103,6 +103,9 @@
         import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
         import { VRButton } from 'three/addons/webxr/VRButton.js';
         import { ARButton } from 'three/addons/webxr/ARButton.js';
+        import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
+        import { OBJLoader } from 'three/addons/loaders/OBJLoader.js';
+        import { STLLoader } from 'three/addons/loaders/STLLoader.js';
 
         function main() {
             const panel = document.getElementById('side-panel');
@@ -255,18 +258,21 @@
             }
 
             const gltfLoader = new GLTFLoader();
+            const fbxLoader = new FBXLoader();
+            const objLoader = new OBJLoader();
+            const stlLoader = new STLLoader();
 
-            function setModel(gltf) {
-                const root = gltf.scene;
+            function setModel(object) {
+                // The object could be a Group from GLTF/FBX/OBJ or a Mesh from STL
 
                 // Ensure the model rotates around its center
-                const box = new THREE.Box3().setFromObject(root);
+                const box = new THREE.Box3().setFromObject(object);
                 const center = box.getCenter(new THREE.Vector3());
-                root.position.sub(center); // Center the model's geometry
+                object.position.sub(center); // Center the model's geometry
 
                 const modelGroup = new THREE.Group();
-                modelGroup.name = 'user_model'; // The group is now the main object
-                modelGroup.add(root);
+                modelGroup.name = 'user_model';
+                modelGroup.add(object);
 
                 // remove previous model
                 const previousModel = scene.getObjectByName('user_model');
@@ -290,15 +296,56 @@
             const fileInput = document.getElementById('file-input');
             fileInput.addEventListener('change', (event) => {
                 const file = event.target.files[0];
-                if (file) {
-                    const reader = new FileReader();
-                    reader.onload = (e) => {
-                        gltfLoader.parse(e.target.result, '', setModel, (error) => {
-                             console.error('An error happened while parsing the model:', error);
-                            alert('Could not parse model. See console for details.');
-                        });
-                    };
+                if (!file) return;
+
+                const filename = file.name.toLowerCase();
+                const extension = filename.split('.').pop();
+                const reader = new FileReader();
+
+                reader.onload = (e) => {
+                    const contents = e.target.result;
+
+                    try {
+                        if (extension === 'gltf' || extension === 'glb') {
+                            // GLTFLoader is async
+                            gltfLoader.parse(contents, '', (gltf) => {
+                                setModel(gltf.scene);
+                            }, (error) => {
+                                alert(`An error occurred parsing the GLTF model: ${error.message}`);
+                                console.error(error);
+                            });
+                        } else {
+                            // Other loaders are sync
+                            let object;
+                            switch (extension) {
+                                case 'fbx':
+                                    object = fbxLoader.parse(contents);
+                                    break;
+                                case 'obj':
+                                    object = objLoader.parse(contents);
+                                    break;
+                                case 'stl':
+                                    const geometry = stlLoader.parse(contents);
+                                    const material = new THREE.MeshStandardMaterial({color: 0xAAAAAA, metalness: 0.1, roughness: 0.75});
+                                    object = new THREE.Mesh(geometry, material);
+                                    break;
+                                default:
+                                    alert(`Unsupported file type: .${extension}`);
+                                    return;
+                            }
+                            setModel(object);
+                        }
+                    } catch (err) {
+                        alert(`An error occurred loading the file: ${err.message}`);
+                        console.error(err);
+                    }
+                };
+
+                const binaryExtensions = ['glb', 'stl', 'fbx'];
+                if (binaryExtensions.includes(extension)) {
                     reader.readAsArrayBuffer(file);
+                } else {
+                    reader.readAsText(file);
                 }
             });
 
