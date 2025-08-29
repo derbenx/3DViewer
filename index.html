@@ -179,6 +179,10 @@
                     controls.target.copy(boxCenter);
                     controls.update();
                 }
+
+                // Reset camera rig position
+                const cameraRig = renderer.xr.getCamera(camera);
+                cameraRig.position.set(0, 0, 0);
             });
 
             const fov = 45;
@@ -357,19 +361,22 @@
                                     }
                                 }
                             } else if (!triggerPressed[i]) {
-                                // Locomotion (only if trigger is not held)
-                                const x = controller.gamepad.axes[2];
-                                const z = controller.gamepad.axes[3];
-                                const speed = 2; // meters per second
-                                const deadzone = 0.2;
+                                // Locomotion (only if trigger is not held and we are in VR)
+                                const session = renderer.xr.getSession();
+                                if (session && session.environmentBlendMode === 'opaque') {
+                                    const x = controller.gamepad.axes[2];
+                                    const z = controller.gamepad.axes[3];
+                                    const speed = 2; // meters per second
+                                    const deadzone = 0.2;
 
-                                const cameraRig = renderer.xr.getCamera(camera);
+                                    const cameraRig = renderer.xr.getCamera(camera);
 
-                                if (Math.abs(x) > deadzone) {
-                                    cameraRig.position.x -= x * speed * timeDelta;
-                                }
-                                if (Math.abs(z) > deadzone) {
-                                    cameraRig.position.z -= z * speed * timeDelta;
+                                    if (Math.abs(x) > deadzone) {
+                                        cameraRig.position.x -= x * speed * timeDelta;
+                                    }
+                                    if (Math.abs(z) > deadzone) {
+                                        cameraRig.position.z -= z * speed * timeDelta;
+                                    }
                                 }
                             }
 
