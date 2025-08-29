@@ -76,6 +76,9 @@
         <div id="panel-content">
             <input type="file" id="file-input" />
             <div id="webxr-buttons"></div>
+            <hr>
+            <h4>Sample Models</h4>
+            <div id="sample-models-list"></div>
         </div>
     </div>
     <canvas id="c"></canvas>
@@ -143,35 +146,54 @@
             }
 
             const gltfLoader = new GLTFLoader();
+
+            function setModel(gltf) {
+                const root = gltf.scene;
+                // remove previous model
+                const previousModel = scene.getObjectByName('user_model');
+                if (previousModel) {
+                    scene.remove(previousModel);
+                }
+                root.name = 'user_model';
+                scene.add(root);
+
+                // center and frame the model
+                const box = new THREE.Box3().setFromObject(root);
+                const boxSize = box.getSize(new THREE.Vector3()).length();
+                const boxCenter = box.getCenter(new THREE.Vector3());
+
+                frameArea(boxSize * 1.2, boxSize, boxCenter, camera);
+
+                controls.maxDistance = boxSize * 10;
+                controls.target.copy(boxCenter);
+                controls.update();
+            }
+
             const fileInput = document.getElementById('file-input');
             fileInput.addEventListener('change', (event) => {
                 const file = event.target.files[0];
                 if (file) {
                     const reader = new FileReader();
                     reader.onload = (e) => {
-                        gltfLoader.parse(e.target.result, '', (gltf) => {
-                            // remove previous model
-                            if (scene.getObjectByName('user_model')) {
-                                scene.remove(scene.getObjectByName('user_model'));
-                            }
-                            const root = gltf.scene;
-                            root.name = 'user_model';
-                            scene.add(root);
-
-                            // center and frame the model
-                            const box = new THREE.Box3().setFromObject(root);
-                            const boxSize = box.getSize(new THREE.Vector3()).length();
-                            const boxCenter = box.getCenter(new THREE.Vector3());
-
-                            frameArea(boxSize * 1.2, boxSize, boxCenter, camera);
-
-                            controls.maxDistance = boxSize * 10;
-                            controls.target.copy(boxCenter);
-                            controls.update();
-
+                        gltfLoader.parse(e.target.result, '', setModel, (error) => {
+                             console.error('An error happened while parsing the model:', error);
+                            alert('Could not parse model. See console for details.');
                         });
                     };
                     reader.readAsArrayBuffer(file);
+                }
+            });
+
+            const listContainer = document.getElementById('sample-models-list');
+            listContainer.addEventListener('click', (event) => {
+                if (event.target.tagName === 'BUTTON') {
+                    const modelPath = event.target.dataset.path;
+                    if (modelPath) {
+                        gltfLoader.load(modelPath, setModel, undefined, (error) => {
+                            console.error('An error happened while loading the model:', error);
+                            alert('Could not load model. See console for details.');
+                        });
+                    }
                 }
             });
 
@@ -214,6 +236,34 @@
 
             renderer.setAnimationLoop(render);
         }
+
+        window.populateSampleModels = function(modelList) {
+            const listContainer = document.getElementById('sample-models-list');
+            listContainer.innerHTML = ''; // Clear previous list
+            if (!modelList || modelList.length === 0) {
+                listContainer.innerHTML = '<p>No sample models found.</p>';
+                return;
+            }
+            modelList.forEach(modelPath => {
+                const button = document.createElement('button');
+                button.textContent = modelPath.split('/').pop();
+                button.dataset.path = modelPath;
+                listContainer.appendChild(button);
+            });
+        }
+
+        fetch('get_models.php')
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                return response.json();
+            })
+            .then(populateSampleModels)
+            .catch(error => {
+                console.error('Error fetching sample models:', error);
+                populateSampleModels(null);
+            });
 
         main();
     </script>
