@@ -172,6 +172,36 @@
             controls.target.set(0, 1, 0);
             controls.update();
 
+            // VR Controllers Setup
+            const controller1 = renderer.xr.getController(0);
+            scene.add(controller1);
+            const controller2 = renderer.xr.getController(1);
+            scene.add(controller2);
+
+            const controllerGrip1 = renderer.xr.getControllerGrip(0);
+            const model1 = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0, -1)]), new THREE.LineBasicMaterial({color: 0xff0000, linewidth: 5}));
+            controllerGrip1.add(model1);
+            scene.add(controllerGrip1);
+
+            const controllerGrip2 = renderer.xr.getControllerGrip(1);
+            const model2 = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0, -1)]), new THREE.LineBasicMaterial({color: 0x0000ff, linewidth: 5}));
+            controllerGrip2.add(model2);
+            scene.add(controllerGrip2);
+
+            let gripPressed = [false, false];
+            let triggerPressed = [false, false];
+
+            controller1.addEventListener('selectstart', () => { triggerPressed[0] = true; });
+            controller1.addEventListener('selectend', () => { triggerPressed[0] = false; });
+            controller1.addEventListener('squeezestart', () => { gripPressed[0] = true; });
+            controller1.addEventListener('squeezeend', () => { gripPressed[0] = false; });
+
+            controller2.addEventListener('selectstart', () => { triggerPressed[1] = true; });
+            controller2.addEventListener('selectend', () => { triggerPressed[1] = false; });
+            controller2.addEventListener('squeezestart', () => { gripPressed[1] = true; });
+            controller2.addEventListener('squeezeend', () => { gripPressed[1] = false; });
+
+
             const scene = new THREE.Scene();
             scene.background = new THREE.Color('black');
 
@@ -273,7 +303,70 @@
                 return needResize;
             }
 
+            const clock = new THREE.Clock();
+
+            function handleControllerInput(timeDelta) {
+                if (renderer.xr.isPresenting) {
+                    for (let i = 0; i < 2; i++) {
+                        const controller = renderer.xr.getController(i);
+                        if (controller.gamepad && controller.gamepad.axes.length >= 4) {
+                            if (gripPressed[i]) {
+                                // Model rotation and scaling
+                                const model = scene.getObjectByName('user_model');
+                                if (model) {
+                                    const x = controller.gamepad.axes[2]; // rotation
+                                    const z = controller.gamepad.axes[3]; // scaling
+                                    const rotationSpeed = 1.5; // radians per second
+                                    const scaleSpeed = 0.5;
+                                    const deadzone = 0.2;
+
+                                    if (Math.abs(x) > deadzone) {
+                                        model.rotation.y -= x * rotationSpeed * timeDelta;
+                                    }
+                                    if (Math.abs(z) > deadzone) {
+                                        const scaleFactor = 1.0 - z * scaleSpeed * timeDelta;
+                                        model.scale.multiplyScalar(scaleFactor);
+                                    }
+                                }
+                            } else {
+                                // Locomotion
+                                const x = controller.gamepad.axes[2];
+                                const z = controller.gamepad.axes[3];
+                                const speed = 2; // meters per second
+                                const deadzone = 0.2;
+
+                                const cameraRig = renderer.xr.getCamera(camera);
+
+                                if (Math.abs(x) > deadzone) {
+                                    cameraRig.position.x -= x * speed * timeDelta;
+                                }
+                                if (Math.abs(z) > deadzone) {
+                                    cameraRig.position.z -= z * speed * timeDelta;
+                                }
+                            }
+
+                            // Model translation (can be used in either mode)
+                            if (triggerPressed[i]) {
+                                const model = scene.getObjectByName('user_model');
+                                if (model) {
+                                    const y = controller.gamepad.axes[3];
+                                    const speed = 2; // meters per second
+                                    const deadzone = 0.2;
+
+                                    if (Math.abs(y) > deadzone) {
+                                        model.position.y -= y * speed * timeDelta;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
             function render() {
+                const delta = clock.getDelta();
+                handleControllerInput(delta);
+
                 if (resizeRendererToDisplaySize(renderer)) {
                     const canvas = renderer.domElement;
                     camera.aspect = canvas.clientWidth / canvas.clientHeight;
