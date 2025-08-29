@@ -92,8 +92,8 @@
     <script type="importmap">
         {
             "imports": {
-                "three": "https://unpkg.com/three@0.138.0/build/three.module.js",
-                "three/addons/": "https://unpkg.com/three@0.138.0/examples/jsm/"
+                "three": "./js/three/build/three.module.js",
+                "three/addons/": "./js/three/examples/jsm/"
             }
         }
     </script>
@@ -379,10 +379,10 @@
                                     const deadzone = 0.2;
 
                                     if (Math.abs(x) > deadzone) {
-                                        model.position.x -= x * speed * timeDelta;
+                                        model.position.x += x * speed * timeDelta;
                                     }
                                     if (Math.abs(z) > deadzone) {
-                                        model.position.z -= z * speed * timeDelta;
+                                        model.position.z += z * speed * timeDelta;
                                     }
                                 }
                             }
