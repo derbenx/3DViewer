@@ -354,7 +354,9 @@
                 if (event.target.tagName === 'BUTTON') {
                     const modelPath = event.target.dataset.path;
                     if (modelPath) {
-                        gltfLoader.load(modelPath, setModel, undefined, (error) => {
+                        gltfLoader.load(modelPath, (gltf) => {
+                            setModel(gltf.scene);
+                        }, undefined, (error) => {
                             console.error('An error happened while loading the model:', error);
                             alert('Could not load model. See console for details.');
                         });
