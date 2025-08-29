@@ -145,13 +145,14 @@
                         model.scale.set(scaleFactor, scaleFactor, scaleFactor);
                     }
 
-                    // After scaling, get the new bounding box size
+                    // After scaling, get the new bounding box and center
                     const vrBox = new THREE.Box3().setFromObject(model);
-                    const vrSize = new THREE.Vector3();
-                    vrBox.getSize(vrSize);
+                    const vrCenter = vrBox.getCenter(new THREE.Vector3());
 
-                    // Reposition the model to be on the floor and in front of the user
-                    model.position.set(0, vrSize.y / 2, -2);
+                    // Reposition the model to be centered, on the floor, and in front of the user
+                    model.position.x -= vrCenter.x;
+                    model.position.y -= vrBox.min.y;
+                    model.position.z -= vrCenter.z + 2;
                 }
             });
 
@@ -195,12 +196,12 @@
             const controllerGrip1 = renderer.xr.getControllerGrip(0);
             const model1 = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0, -1)]), new THREE.LineBasicMaterial({color: 0xff0000, linewidth: 5}));
             controllerGrip1.add(model1);
-            scene.add(controllerGrip1);
+            // The grip is already a child of the controller, no need to add to scene directly
 
             const controllerGrip2 = renderer.xr.getControllerGrip(1);
             const model2 = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0, -1)]), new THREE.LineBasicMaterial({color: 0x0000ff, linewidth: 5}));
             controllerGrip2.add(model2);
-            scene.add(controllerGrip2);
+            // The grip is already a child of the controller, no need to add to scene directly
 
             let gripPressed = [false, false];
             let triggerPressed = [false, false];
