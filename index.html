@@ -5,13 +5,79 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>GLTF Viewer</title>
     <style>
-        body { margin: 0; }
-        #c { width: 100vw; height: 100vh; display: block; }
-        #file-input { position: absolute; top: 10px; left: 10px; z-index: 1; }
+        body { margin: 0; font-family: sans-serif; }
+        #c { width: 100vw; height: 100vh; display: block; position: absolute; top: 0; left: 0; z-index: 1; }
+
+        #side-panel {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 250px;
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            transition: transform 0.3s ease;
+            transform: translateX(-250px); /* Start hidden */
+            height: 100%;
+            z-index: 2;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        #side-panel.visible {
+            transform: translateX(0);
+        }
+
+        #panel-toggle-button {
+            position: absolute;
+            top: 10px;
+            right: -40px; /* Position outside the panel */
+            width: 30px;
+            height: 30px;
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-size: 20px;
+            line-height: 30px;
+            text-align: center;
+            padding: 0;
+        }
+
+        #panel-content {
+            /* No styles needed here as padding is on parent now */
+        }
+
+        #file-input {
+            width: 100%;
+            margin-bottom: 15px;
+        }
+
+        #webxr-buttons button {
+            display: block;
+            width: 100%;
+            margin-bottom: 10px;
+            background-color: #444;
+            color: white;
+            border: 1px solid #555;
+            padding: 10px;
+            text-align: center;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        #webxr-buttons button:hover {
+            background-color: #555;
+        }
     </style>
 </head>
 <body>
-    <input type="file" id="file-input" />
+    <div id="side-panel">
+        <button id="panel-toggle-button">☰</button>
+        <div id="panel-content">
+            <input type="file" id="file-input" />
+            <div id="webxr-buttons"></div>
+        </div>
+    </div>
     <canvas id="c"></canvas>
     <script type="importmap">
         {
@@ -29,12 +95,20 @@
         import { ARButton } from 'three/addons/webxr/ARButton.js';
 
         function main() {
+            const panel = document.getElementById('side-panel');
+            const toggleButton = document.getElementById('panel-toggle-button');
+
+            toggleButton.addEventListener('click', () => {
+                panel.classList.toggle('visible');
+            });
+
             const canvas = document.querySelector('#c');
             const renderer = new THREE.WebGLRenderer({canvas, antialias: true});
             renderer.xr.enabled = true;
 
-            document.body.appendChild(VRButton.createButton(renderer));
-            document.body.appendChild(ARButton.createButton(renderer));
+            const webxrButtonsContainer = document.getElementById('webxr-buttons');
+            webxrButtonsContainer.appendChild(VRButton.createButton(renderer));
+            webxrButtonsContainer.appendChild(ARButton.createButton(renderer));
 
             const fov = 45;
             const aspect = 2;  // the canvas default
