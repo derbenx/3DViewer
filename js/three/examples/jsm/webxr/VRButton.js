@@ -32,8 +32,15 @@ class VRButton {
 				currentSession.removeEventListener( 'end', onSessionEnded );
 
 				button.textContent = 'ENTER VR';
+				button.disabled = true; // Disable button briefly
 
 				currentSession = null;
+
+				setTimeout( () => {
+
+					button.disabled = false;
+
+				}, 500 );
 
 			}
 

@@ -68,9 +68,16 @@ class ARButton {
 				currentSession.removeEventListener( 'end', onSessionEnded );
 
 				button.textContent = 'START AR';
+				button.disabled = true; // Disable button briefly
 				sessionInit.domOverlay.root.style.display = 'none';
 
 				currentSession = null;
+
+				setTimeout( () => {
+
+					button.disabled = false;
+
+				}, 500 );
 
 			}
 
