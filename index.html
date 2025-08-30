@@ -411,6 +411,8 @@
             }
 
             function resizeRendererToDisplaySize(renderer) {
+                if (renderer.xr.isPresenting) return false; // Don't resize when in XR
+
                 const canvas = renderer.domElement;
                 const width = canvas.clientWidth;
                 const height = canvas.clientHeight;
@@ -429,57 +431,42 @@
                         const controller = renderer.xr.getController(i);
 
                         if (controller && controller.gamepad && controller.gamepad.axes.length >= 4) {
-                            if (gripPressed[i]) {
-                                // Model rotation and scaling
-                                const model = scene.getObjectByName('user_model');
-                                if (model) {
-                                    const x = controller.gamepad.axes[2]; // rotation
-                                    const z = controller.gamepad.axes[3]; // scaling
-                                    const rotationSpeed = 1.5; // radians per second
-                                    const scaleSpeed = 0.5;
-                                    const deadzone = 0.2;
+                            const model = scene.getObjectByName('user_model');
+                            if (model) {
+                                const x = controller.gamepad.axes[2];
+                                const z = controller.gamepad.axes[3];
+                                const deadzone = 0.2;
 
+                                if (triggerPressed[i]) {
+                                    // Trigger: Rotate Y and Move Y
+                                    const rotationSpeed = 1.5; // radians per second
+                                    const verticalSpeed = 2; // meters per second
                                     if (Math.abs(x) > deadzone) {
                                         model.rotation.y -= x * rotationSpeed * timeDelta;
                                     }
                                     if (Math.abs(z) > deadzone) {
+                                        model.position.y -= z * verticalSpeed * timeDelta;
+                                    }
+                                } else if (gripPressed[i]) {
+                                    // Grip: Scale
+                                    const scaleSpeed = 0.5;
+                                    if (Math.abs(z) > deadzone) {
                                         const scaleFactor = 1.0 - z * scaleSpeed * timeDelta;
                                         model.scale.multiplyScalar(scaleFactor);
                                     }
-                                }
-                            } else if (!triggerPressed[i]) {
-                                // Model translation on the floor plane
-                                const model = scene.getObjectByName('user_model');
-                                if (model) {
-                                    const x = controller.gamepad.axes[2];
-                                    const z = controller.gamepad.axes[3];
-                                    const speed = 2; // meters per second
-                                    const deadzone = 0.2;
-
+                                } else {
+                                    // No button: Translate X/Z on the floor
+                                    const moveSpeed = 2; // meters per second
                                     if (Math.abs(x) > deadzone) {
-                                        model.position.x += x * speed * timeDelta;
+                                        model.position.x += x * moveSpeed * timeDelta;
                                     }
                                     if (Math.abs(z) > deadzone) {
-                                        model.position.z += z * speed * timeDelta;
+                                        model.position.z += z * moveSpeed * timeDelta;
                                     }
                                 }
                             }
 
-                            // Model translation (can be used in either mode)
-                            if (triggerPressed[i]) {
-                                const model = scene.getObjectByName('user_model');
-                                if (model) {
-                                    const y = controller.gamepad.axes[3];
-                                    const speed = 2; // meters per second
-                                    const deadzone = 0.2;
-
-                                    if (Math.abs(y) > deadzone) {
-                                        model.position.y -= y * speed * timeDelta;
-                                    }
-                                }
-                            }
-
-                            // Exit VR button (A/X button)
+                            // Exit VR button is independent of other controls
                             if (controller.gamepad.buttons.length > 4 && controller.gamepad.buttons[4].pressed) {
                                 const session = renderer.xr.getSession();
                                 if (session) {
