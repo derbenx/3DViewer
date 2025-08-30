@@ -470,7 +470,7 @@
                             }
 
                             // Exit VR button is independent of other controls
-                            if (controller.gamepad.buttons.length > 4 && controller.gamepad.buttons[4].pressed) {
+                            if (controller.gamepad.buttons.length > 5 && controller.gamepad.buttons[5].pressed) {
                                 const session = renderer.xr.getSession();
                                 if (session) {
                                     session.end();
