@@ -78,7 +78,7 @@
     </style>
 </head>
 <body>
-    <div id="side-panel">
+    <div id="side-panel" class="visible">
         <button id="panel-toggle-button">☰</button>
         <div id="panel-content">
             <input type="file" id="file-input" accept=".gltf,.glb,.fbx,.obj,.stl" />
@@ -86,6 +86,8 @@
             <hr>
             <h4>Sample Models</h4>
             <div id="sample-models-list"></div>
+            <hr>
+            <div id="version-info" style="font-size: 12px; color: #888; position: absolute; bottom: 10px;">Version: 1.1.0</div>
         </div>
     </div>
     <canvas id="c"></canvas>
