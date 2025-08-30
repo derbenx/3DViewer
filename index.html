@@ -87,7 +87,7 @@
             <h4>Sample Models</h4>
             <div id="sample-models-list"></div>
             <hr>
-            <div id="version-info" style="font-size: 12px; color: #888; position: absolute; bottom: 10px;">Version: 1.2.2</div>
+            <div id="version-info" style="font-size: 12px; color: #888; position: absolute; bottom: 10px;">Version: 1.3.0</div>
         </div>
     </div>
     <canvas id="c"></canvas>
@@ -148,8 +148,8 @@
                     box.getSize(size);
                     const maxDim = Math.max(size.x, size.y, size.z);
 
-                    // Avoid division by zero if model has no size
-                    if (maxDim > 0) {
+                    // Avoid division by zero or tiny numbers if model has no size
+                    if (maxDim > 0.001) {
                         // Target size for VR (e.g., 1.5 meters on its longest side)
                         const targetSize = 1.5;
                         const scaleFactor = targetSize / maxDim;
@@ -296,58 +296,62 @@
             }
 
             const fileInput = document.getElementById('file-input');
-            let objectURL; // To keep track of the last created URL
-
             fileInput.addEventListener('change', (event) => {
                 const file = event.target.files[0];
                 if (!file) return;
 
-                // Revoke the previous object URL to free up memory
-                if (objectURL) {
-                    URL.revokeObjectURL(objectURL);
-                }
-                objectURL = URL.createObjectURL(file);
-
                 const filename = file.name.toLowerCase();
                 const extension = filename.split('.').pop();
-                let loader;
-                let onLoad;
+                const reader = new FileReader();
 
-                const onError = (error) => {
-                    console.error(`An error happened while loading the model ${filename}:`, error);
-                    alert(`Could not load model ${filename}. See console for details.`);
+                reader.onerror = function(e) {
+                    alert(`FileReader error: ${e.type}`);
+                    console.error(e);
                 };
 
-                switch (extension) {
-                    case 'gltf':
-                    case 'glb':
-                        loader = gltfLoader;
-                        onLoad = (gltf) => setModel(gltf.scene);
-                        break;
-                    case 'fbx':
-                        loader = fbxLoader;
-                        onLoad = (object) => setModel(object);
-                        break;
-                    case 'obj':
-                        loader = objLoader;
-                        onLoad = (object) => setModel(object);
-                        break;
-                    case 'stl':
-                        loader = stlLoader;
-                        onLoad = (geometry) => {
-                            const material = new THREE.MeshStandardMaterial({color: 0xAAAAAA, metalness: 0.1, roughness: 0.75});
-                            const mesh = new THREE.Mesh(geometry, material);
-                            setModel(mesh);
-                        };
-                        break;
-                    default:
-                        alert(`Unsupported file type: .${extension}`);
-                        return;
+                reader.onload = (e) => {
+                    const contents = e.target.result;
+                    try {
+                        if (extension === 'gltf' || extension === 'glb') {
+                            gltfLoader.parse(contents, '', (gltf) => {
+                                setModel(gltf.scene);
+                            }, (error) => {
+                                alert(`An error occurred parsing the GLTF model: ${error.message}`);
+                                console.error(error);
+                            });
+                        } else {
+                            let object;
+                            switch (extension) {
+                                case 'fbx':
+                                    object = fbxLoader.parse(contents, '');
+                                    break;
+                                case 'obj':
+                                    object = objLoader.parse(contents);
+                                    break;
+                                case 'stl':
+                                    const geometry = stlLoader.parse(contents);
+                                    const material = new THREE.MeshStandardMaterial({color: 0xAAAAAA, metalness: 0.1, roughness: 0.75});
+                                    object = new THREE.Mesh(geometry, material);
+                                    break;
+                                default:
+                                    alert(`Unsupported file type: .${extension}`);
+                                    return;
+                            }
+                            setModel(object);
+                        }
+                    } catch (err) {
+                        alert(`An error occurred loading the file: ${err.message}`);
+                        console.error(err);
+                    }
+                };
+
+                const binaryExtensions = ['glb', 'stl', 'fbx'];
+                if (binaryExtensions.includes(extension)) {
+                    reader.readAsArrayBuffer(file);
+                } else {
+                    reader.readAsText(file);
                 }
 
-                loader.load(objectURL, onLoad, undefined, onError);
-
-                // Reset file input to allow selecting the same file again.
                 event.target.value = '';
             });
 
