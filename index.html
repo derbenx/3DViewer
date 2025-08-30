@@ -87,7 +87,7 @@
             <h4>Sample Models</h4>
             <div id="sample-models-list"></div>
             <hr>
-            <div id="version-info" style="font-size: 12px; color: #888; position: absolute; bottom: 10px;">Version: 1.3.3</div>
+            <div id="version-info" style="font-size: 12px; color: #888; position: absolute; bottom: 10px;">Version: 1.3.4</div>
         </div>
     </div>
     <canvas id="c"></canvas>
@@ -446,26 +446,28 @@
                                 const z = controller.gamepad.axes[3];
                                 const deadzone = 0.25;
 
-                                if (triggerPressed[i]) {
-                                    // Trigger: Rotate Y and Move Y
-                                    const rotationSpeed = 1.5; // radians per second
-                                    const verticalSpeed = 2; // meters per second
-                                    if (Math.abs(x) > deadzone) {
-                                        model.rotation.y -= x * rotationSpeed * timeDelta;
-                                    }
-                                    if (Math.abs(z) > deadzone) {
-                                        model.position.y -= z * verticalSpeed * timeDelta;
-                                    }
-                                } else if (gripPressed[i]) {
-                                    // Grip: Scale
+                                if (triggerPressed[i] && gripPressed[i]) {
+                                    // Grip + Trigger: Scale
                                     const scaleSpeed = 0.5;
                                     if (Math.abs(z) > deadzone) {
                                         const scaleFactor = 1.0 - z * scaleSpeed * timeDelta;
                                         model.scale.multiplyScalar(scaleFactor);
                                     }
+                                } else if (triggerPressed[i]) {
+                                    // Trigger: Move Y
+                                    const verticalSpeed = 1.0;
+                                    if (Math.abs(z) > deadzone) {
+                                        model.position.y -= z * verticalSpeed * timeDelta;
+                                    }
+                                } else if (gripPressed[i]) {
+                                    // Grip: Rotate Y
+                                    const rotationSpeed = 1.5; // radians per second
+                                    if (Math.abs(x) > deadzone) {
+                                        model.rotation.y -= x * rotationSpeed * timeDelta;
+                                    }
                                 } else {
-                                    // No button: Translate X/Z on the floor
-                                    const moveSpeed = 2; // meters per second
+                                    // No button: Translate X/Z on the floor (slower)
+                                    const moveSpeed = 1.0; // meters per second
                                     if (Math.abs(x) > deadzone) {
                                         model.position.x += x * moveSpeed * timeDelta;
                                     }
