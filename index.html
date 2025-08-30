@@ -221,7 +221,7 @@
 
             let gripPressed = [false, false];
             let triggerPressed = [false, false];
-            let exitButtonPressed = false;
+            let exitButtonPressed = [false, false];
 
             controller1.addEventListener('connected', function ( event ) {
                 console.log('Controller 0 Connected.');
@@ -413,7 +413,7 @@
                   .normalize();
 
               camera.position.copy(direction.multiplyScalar(distance).add(boxCenter));
-              camera.near = boxSize / 1000;
+              camera.near = 0.01;
               camera.far = boxSize * 10;
               camera.updateProjectionMatrix();
               camera.lookAt(boxCenter.x, boxCenter.y, boxCenter.z);
@@ -477,8 +477,8 @@
 
                             // Exit VR button is independent of other controls
                             if (controller.gamepad.buttons.length > 5 && controller.gamepad.buttons[5].pressed) {
-                                if (!exitButtonPressed) {
-                                    exitButtonPressed = true;
+                                if (!exitButtonPressed[i]) {
+                                    exitButtonPressed[i] = true;
                                     // Find the currently active button (VR or AR) and click it
                                     // This ensures the same exit logic is used everywhere.
                                     const vrButton = document.getElementById('VRButton');
@@ -490,7 +490,7 @@
                                     }
                                 }
                             } else {
-                                exitButtonPressed = false;
+                                exitButtonPressed[i] = false;
                             }
                         }
                     }
