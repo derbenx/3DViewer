@@ -13,6 +13,7 @@ class VRButton {
 		function showEnterVR( /*device*/ ) {
 
 			let currentSession = null;
+			let isRequesting = false;
 
 			async function onSessionStarted( session ) {
 
@@ -22,6 +23,7 @@ class VRButton {
 				button.textContent = 'EXIT VR';
 
 				currentSession = session;
+				isRequesting = false;
 
 			}
 
@@ -59,6 +61,8 @@ class VRButton {
 
 			button.onclick = function () {
 
+				if ( isRequesting ) return;
+
 				if ( currentSession === null ) {
 
 					// WebXR's requestReferenceSpace only works if the corresponding feature
@@ -69,7 +73,12 @@ class VRButton {
 					// be requested separately.)
 
 					const sessionInit = { optionalFeatures: [ 'local-floor', 'bounded-floor', 'hand-tracking', 'layers' ] };
-					navigator.xr.requestSession( 'immersive-vr', sessionInit ).then( onSessionStarted );
+					isRequesting = true;
+					navigator.xr.requestSession( 'immersive-vr', sessionInit ).then( onSessionStarted ).catch( ( err ) => {
+						console.error( 'VR session request failed', err );
+						isRequesting = false;
+					} );
+
 
 				} else {
 

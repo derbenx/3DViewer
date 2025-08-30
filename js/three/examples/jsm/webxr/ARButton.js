@@ -45,6 +45,7 @@ class ARButton {
 			//
 
 			let currentSession = null;
+			let isRequesting = false;
 
 			async function onSessionStarted( session ) {
 
@@ -58,6 +59,7 @@ class ARButton {
 				sessionInit.domOverlay.root.style.display = '';
 
 				currentSession = session;
+				isRequesting = false;
 
 			}
 
@@ -96,9 +98,15 @@ class ARButton {
 
 			button.onclick = function () {
 
+				if ( isRequesting ) return;
+
 				if ( currentSession === null ) {
 
-					navigator.xr.requestSession( 'immersive-ar', sessionInit ).then( onSessionStarted );
+					isRequesting = true;
+					navigator.xr.requestSession( 'immersive-ar', sessionInit ).then( onSessionStarted ).catch( ( err ) => {
+						console.error( 'AR session request failed', err );
+						isRequesting = false;
+					} );
 
 				} else {
 
