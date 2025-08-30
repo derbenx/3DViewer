@@ -87,7 +87,7 @@
             <h4>Sample Models</h4>
             <div id="sample-models-list"></div>
             <hr>
-            <div id="version-info" style="font-size: 12px; color: #888; position: absolute; bottom: 10px;">Version: 1.2.0</div>
+            <div id="version-info" style="font-size: 12px; color: #888; position: absolute; bottom: 10px;">Version: 1.2.2</div>
         </div>
     </div>
     <canvas id="c"></canvas>
@@ -406,8 +406,8 @@
                   .normalize();
 
               camera.position.copy(direction.multiplyScalar(distance).add(boxCenter));
-              camera.near = boxSize / 100;
-              camera.far = boxSize * 100;
+              camera.near = boxSize / 1000;
+              camera.far = boxSize * 10;
               camera.updateProjectionMatrix();
               camera.lookAt(boxCenter.x, boxCenter.y, boxCenter.z);
             }
