@@ -81,7 +81,8 @@
     <div id="side-panel" class="visible">
         <button id="panel-toggle-button">☰</button>
         <div id="panel-content">
-            <input type="file" id="file-input" accept=".gltf,.glb,.fbx,.obj,.stl" />
+            <button id="browse-button" style="width: 100%; margin-bottom: 15px; padding: 10px; background-color: #444; color: white; border: 1px solid #555; cursor: pointer; font-size: 14px;">Browse Files</button>
+            <input type="file" id="file-input-fallback" accept=".gltf,.glb,.fbx,.obj,.stl" style="display: none;" />
             <div id="webxr-buttons"></div>
             <hr>
             <h4>Sample Models</h4>
@@ -97,7 +98,7 @@
                 <label for="fps-toggle" style="font-size: 14px;">Show FPS</label>
             </div>
             <hr>
-            <div id="version-info" style="font-size: 12px; color: #888; position: absolute; bottom: 10px;">Version: 1.3.5</div>
+            <div id="version-info" style="font-size: 12px; color: #888; position: absolute; bottom: 10px;">Version: 1.4.0</div>
         </div>
     </div>
     <div id="fps-counter" style="position: absolute; top: 10px; right: 10px; color: white; background: rgba(0,0,0,0.5); padding: 5px; font-family: sans-serif; display: none; z-index: 10;"></div>
@@ -330,63 +331,85 @@
                 controls.update();
             }
 
-            const fileInput = document.getElementById('file-input');
-            fileInput.addEventListener('change', (event) => {
-                const file = event.target.files[0];
-                if (!file) return;
-
+            async function loadModelFromFile(file) {
                 const filename = file.name.toLowerCase();
                 const extension = filename.split('.').pop();
-                const reader = new FileReader();
+                let contents;
 
-                reader.onerror = function(e) {
-                    alert(`FileReader error: ${e.type}`);
-                    console.error(e);
-                };
-
-                reader.onload = (e) => {
-                    const contents = e.target.result;
-                    try {
-                        if (extension === 'gltf' || extension === 'glb') {
-                            gltfLoader.parse(contents, '', (gltf) => {
-                                setModel(gltf.scene);
-                            }, (error) => {
-                                alert(`An error occurred parsing the GLTF model: ${error.message}`);
-                                console.error(error);
-                            });
-                        } else {
-                            let object;
-                            switch (extension) {
-                                case 'fbx':
-                                    object = fbxLoader.parse(contents, '');
-                                    break;
-                                case 'obj':
-                                    object = objLoader.parse(contents);
-                                    break;
-                                case 'stl':
-                                    const geometry = stlLoader.parse(contents);
-                                    const material = new THREE.MeshStandardMaterial({color: 0xAAAAAA, metalness: 0.1, roughness: 0.75});
-                                    object = new THREE.Mesh(geometry, material);
-                                    break;
-                                default:
-                                    alert(`Unsupported file type: .${extension}`);
-                                    return;
-                            }
-                            setModel(object);
-                        }
-                    } catch (err) {
-                        alert(`An error occurred loading the file: ${err.message}`);
-                        console.error(err);
+                try {
+                    const binaryExtensions = ['glb', 'stl', 'fbx'];
+                    if (binaryExtensions.includes(extension)) {
+                        contents = await file.arrayBuffer();
+                    } else {
+                        contents = await file.text();
                     }
-                };
-
-                const binaryExtensions = ['glb', 'stl', 'fbx'];
-                if (binaryExtensions.includes(extension)) {
-                    reader.readAsArrayBuffer(file);
-                } else {
-                    reader.readAsText(file);
+                } catch (e) {
+                    alert(`Could not read file: ${e.message}`);
+                    console.error(e);
+                    return;
                 }
 
+                try {
+                    if (extension === 'gltf' || extension === 'glb') {
+                        gltfLoader.parse(contents, '', (gltf) => {
+                            setModel(gltf.scene);
+                        }, (error) => {
+                            alert(`An error occurred parsing the GLTF model: ${error.message}`);
+                            console.error(error);
+                        });
+                    } else {
+                        let object;
+                        switch (extension) {
+                            case 'fbx':
+                                object = fbxLoader.parse(contents, '');
+                                break;
+                            case 'obj':
+                                object = objLoader.parse(contents);
+                                break;
+                            case 'stl':
+                                const geometry = stlLoader.parse(contents);
+                                const material = new THREE.MeshStandardMaterial({color: 0xAAAAAA, metalness: 0.1, roughness: 0.75});
+                                object = new THREE.Mesh(geometry, material);
+                                break;
+                            default:
+                                alert(`Unsupported file type: .${extension}`);
+                                return;
+                        }
+                        setModel(object);
+                    }
+                } catch (err) {
+                    alert(`An error occurred loading the model: ${err.message}`);
+                    console.error(err);
+                }
+            }
+
+            const browseButton = document.getElementById('browse-button');
+            const fallbackInput = document.getElementById('file-input-fallback');
+
+            browseButton.addEventListener('click', async () => {
+                if (window.showOpenFilePicker) {
+                    try {
+                        const [fileHandle] = await window.showOpenFilePicker();
+                        const file = await fileHandle.getFile();
+                        loadModelFromFile(file);
+                    } catch (err) {
+                        // AbortError is thrown if the user closes the picker
+                        if (err.name !== 'AbortError') {
+                            alert(`Error opening file: ${err.message}`);
+                            console.error(err);
+                        }
+                    }
+                } else {
+                    fallbackInput.click();
+                }
+            });
+
+            fallbackInput.addEventListener('change', (event) => {
+                const file = event.target.files[0];
+                if (file) {
+                    loadModelFromFile(file);
+                }
+                // Reset fallback input
                 event.target.value = '';
             });
 
