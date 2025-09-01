@@ -46,7 +46,7 @@
         #panel-content {
             display: flex;
             flex-direction: column;
-            height: 100%;
+            height: calc(100% - 30px); /* Reserve space for version info */
         }
 
         #file-input {
@@ -135,7 +135,7 @@
             flex: 1;
             overflow-y: auto;
             min-height: 0;
-            padding-bottom: 30px; /* Leave space for version info */
+            padding-right: 15px; /* Prevent content from hiding under scrollbar */
         }
 
         #side-panel * {
@@ -270,7 +270,7 @@
                 </div>
                 <hr>
             </div>
-            <div id="version-info" style="font-size: 12px; color: #888; position: absolute; bottom: 10px;">Version: 2.4.0</div>
+            <div id="version-info" style="font-size: 12px; color: #888; position: absolute; bottom: 10px;">Version: 2.5.0</div>
         </div>
     </div>
     <div id="fps-counter" style="position: absolute; top: 10px; right: 10px; color: white; background: rgba(0,0,0,0.5); padding: 5px; font-family: sans-serif; display: none; z-index: 10;"></div>
@@ -546,6 +546,27 @@
                 scene.add(light);
             }
 
+            function updateLightForModel(modelBox) {
+                const mainLight = scene.getObjectByName('main_light');
+                if (!mainLight) return;
+
+                const modelSize = modelBox.getSize(new THREE.Vector3()).length();
+                const modelCenter = modelBox.getCenter(new THREE.Vector3());
+
+                // Adjust light based on its type
+                if (mainLight.isDirectionalLight || mainLight.isSpotLight) {
+                    mainLight.position.copy(modelCenter).add(new THREE.Vector3(modelSize * 0.5, modelSize, modelSize * 0.5));
+                    mainLight.target.position.copy(modelCenter);
+                } else if (mainLight.isPointLight) {
+                    mainLight.position.copy(modelCenter).add(new THREE.Vector3(0, modelSize * 0.75, modelSize * 0.75));
+                }
+
+                // For lights with a 'distance' property, update it based on model size
+                if (typeof mainLight.distance !== 'undefined') {
+                    mainLight.distance = modelSize * 3;
+                }
+            }
+
             function updateLightSource() {
                 // Remove existing main light
                 const existingLight = scene.getObjectByName('main_light');
@@ -586,6 +607,13 @@
                 if (light) {
                     light.name = 'main_light';
                     scene.add(light);
+
+                    // If a model exists, adjust the new light for it
+                    const model = scene.getObjectByName('user_model');
+                    if (model) {
+                        const modelBox = new THREE.Box3().setFromObject(model);
+                        updateLightForModel(modelBox);
+                    }
                 }
             }
 
@@ -628,6 +656,8 @@
                 controls.maxDistance = boxSize * 10;
                 controls.target.copy(boxCenter);
                 controls.update();
+
+                updateLightForModel(newBox);
             }
 
             async function loadModelFromFile(file) {
