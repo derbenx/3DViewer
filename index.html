@@ -286,7 +286,7 @@
                 <hr>
             </div>
             <!-- AGENT_NOTE: Always update this version number when changing files. -->
-            <div id="version-info" style="font-size: 12px; color: #888; position: absolute; bottom: 10px;">Version: 2.5.3</div>
+            <div id="version-info" style="font-size: 12px; color: #888; position: absolute; bottom: 10px;">Version: 2.5.4</div>
         </div>
     </div>
     <div id="fps-counter" style="position: absolute; top: 10px; right: 10px; color: white; background: rgba(0,0,0,0.5); padding: 5px; font-family: sans-serif; display: none; z-index: 10;"></div>
@@ -1053,7 +1053,9 @@
             }
             modelList.forEach(modelPath => {
                 const button = document.createElement('button');
-                button.textContent = modelPath.split('/').pop();
+                const filename = modelPath.split('/').pop();
+                button.textContent = filename;
+                button.title = filename; // Use the full filename as the tooltip.
                 button.dataset.path = modelPath;
                 listContainer.appendChild(button);
             });
