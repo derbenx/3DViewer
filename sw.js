@@ -1,7 +1,8 @@
-const CACHE_NAME = 'gltf-viewer-v6';
+const CACHE_NAME = 'gltf-viewer-v8';
 const PRECACHE_ASSETS = [
     '/',
     'index.html',
+    'version.txt',
     'js/three/build/three.module.js',
     'js/three/examples/jsm/controls/OrbitControls.js',
     'js/three/examples/jsm/loaders/GLTFLoader.js',
@@ -19,12 +20,34 @@ const PRECACHE_ASSETS = [
 
 self.addEventListener('install', event => {
     event.waitUntil(
-        caches.open(CACHE_NAME)
-            .then(cache => {
-                console.log('Opened cache and adding precache assets');
-                return cache.addAll(PRECACHE_ASSETS);
-            })
-            .then(() => self.skipWaiting()) // Force the waiting service worker to become the active service worker.
+        (async () => {
+            console.log('Service Worker: Install event in progress.');
+            const cache = await caches.open(CACHE_NAME);
+
+            // 1. Fetch the version file with a cache-busting parameter.
+            const versionRequest = new Request('/version.txt', { cache: 'no-store' });
+            const versionResponse = await fetch(versionRequest);
+
+            if (!versionResponse.ok) {
+                throw new Error('Could not fetch version.txt. Aborting installation.');
+            }
+
+            const responseText = await versionResponse.text();
+            const expectedKey = '21a0616db67ac894124be948ecdad657327cf42df016f26e66';
+
+            // 2. Validate the key.
+            if (responseText.trim() !== expectedKey) {
+                throw new Error(`Version key mismatch. Expected ${expectedKey}, got ${responseText.trim()}. Aborting installation.`);
+            }
+
+            console.log('Service Worker: Version key validated. Caching app shell.');
+
+            // 3. If validation passes, cache all assets.
+            await cache.addAll(PRECACHE_ASSETS);
+
+            console.log('Service Worker: App shell cached successfully.');
+            return self.skipWaiting();
+        })()
     );
 });
 
@@ -54,24 +77,20 @@ self.addEventListener('fetch', event => {
 
     // For navigation requests (e.g., loading the page), use a network-first strategy.
     if (event.request.mode === 'navigate') {
-        event.respondWith(
-            (async () => {
-                try {
-                    // 1. Try to fetch from the network.
-                    const networkResponse = await fetch(event.request);
-                    // 2. If successful, put a copy in the cache.
-                    const cache = await caches.open(CACHE_NAME);
-                    await cache.put(event.request, networkResponse.clone());
-                    // 3. Return the network response.
-                    return networkResponse;
-                } catch (error) {
-                    // 4. If the network fails, try to serve from the cache.
-                    console.log('Network request failed, trying to serve from cache.');
-                    const cache = await caches.open(CACHE_NAME);
-                    return await cache.match(event.request) || await cache.match('/index.html');
-                }
-            })()
-        );
+        event.respondWith((async () => {
+            try {
+                const networkResponse = await fetch(event.request);
+                // If we get a response, update the cache and return it.
+                const cache = await caches.open(CACHE_NAME);
+                cache.put(event.request, networkResponse.clone());
+                return networkResponse;
+            } catch (error) {
+                // If the network fails, serve from the cache.
+                console.log('Network request failed, serving from cache.');
+                const cache = await caches.open(CACHE_NAME);
+                return await cache.match(event.request) || await cache.match('/');
+            }
+        })());
         return;
     }
 
