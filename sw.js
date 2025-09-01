@@ -1,6 +1,6 @@
-const CACHE_NAME = 'gltf-viewer-v1';
+const CACHE_NAME = 'gltf-viewer-v2'; // Increment cache version
 const PRECACHE_ASSETS = [
-    '/',
+    // '/', // Removing root path to avoid potential redirect issues during install
     '/index.html',
     '/js/three/build/three.module.js',
     '/js/three/examples/jsm/controls/OrbitControls.js',
@@ -33,16 +33,22 @@ self.addEventListener('fetch', event => {
 
     // Cache-first strategy for all other requests.
     event.respondWith(
-        caches.match(event.request).then(cachedResponse => {
+        caches.open(CACHE_NAME).then(async (cache) => {
+            const cachedResponse = await cache.match(event.request);
             if (cachedResponse) {
                 return cachedResponse;
             }
 
-            return fetch(event.request).then(response => {
-                // We don't cache every response here, only the precached assets.
-                // This prevents caching of other dynamic content unless specified.
-                return response;
-            });
+            // Specifically handle navigation to the root directory
+            if (event.request.mode === 'navigate' && url.pathname === '/') {
+                const indexResponse = await cache.match('/index.html');
+                if (indexResponse) {
+                    return indexResponse;
+                }
+            }
+
+            // Fallback to network for everything else.
+            return fetch(event.request);
         })
     );
 });
