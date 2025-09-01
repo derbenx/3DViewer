@@ -44,7 +44,9 @@
         }
 
         #panel-content {
-            /* No styles needed here as padding is on parent now */
+            display: flex;
+            flex-direction: column;
+            height: 100%;
         }
 
         #file-input {
@@ -128,6 +130,12 @@
         .collapsible-container.collapsed .collapsible-content {
             display: none;
         }
+
+        #main-controls-container {
+            flex: 1;
+            overflow-y: auto;
+            min-height: 0;
+        }
     </style>
 </head>
 <body>
@@ -140,56 +148,65 @@
             </div>
             <input type="file" id="file-input-fallback" accept=".gltf,.glb,.fbx,.obj,.stl,.jpg,.jpeg,.png" style="display: none;" />
             <div id="webxr-buttons"></div>
-            <hr>
-            <div class="collapsible-container">
-                <h4 class="collapsible-header">Settings</h4>
-                <div class="collapsible-content">
-                    <div>
-                        <input type="checkbox" id="antialias-toggle">
-                        <label for="antialias-toggle" style="font-size: 14px;">Enable Antialiasing</label>
-                    </div>
-                    <div>
-                        <input type="checkbox" id="fps-toggle">
-                        <label for="fps-toggle" style="font-size: 14px;">Show FPS</label>
-                    </div>
-                    <div>
-                        <label style="font-size: 14px;">VR Background</label>
-                        <div id="rgb-sliders" style="display: flex; flex-direction: column; gap: 5px; margin-top: 5px;">
-                            <div style="display: flex; align-items: center; gap: 5px;"><label for="r-slider" style="width: 20px;">R:</label><input type="range" id="r-slider" min="0" max="255" step="1" style="flex-grow: 1;"></div>
-                            <div style="display: flex; align-items: center; gap: 5px;"><label for="g-slider" style="width: 20px;">G:</label><input type="range" id="g-slider" min="0" max="255" step="1" style="flex-grow: 1;"></div>
-                            <div style="display: flex; align-items: center; gap: 5px;"><label for="b-slider" style="width: 20px;">B:</label><input type="range" id="b-slider" min="0" max="255" step="1" style="flex-grow: 1;"></div>
+            <div id="main-controls-container">
+                <hr>
+                <div class="collapsible-container">
+                    <h4 class="collapsible-header">Settings</h4>
+                    <div class="collapsible-content">
+                        <div>
+                            <input type="checkbox" id="antialias-toggle">
+                            <label for="antialias-toggle" style="font-size: 14px;">Enable Antialiasing</label>
+                        </div>
+                        <div>
+                            <input type="checkbox" id="fps-toggle">
+                            <label for="fps-toggle" style="font-size: 14px;">Show FPS</label>
+                        </div>
+                        <div>
+                            <label style="font-size: 14px;">VR Background</label>
+                            <div id="rgb-sliders" style="display: flex; flex-direction: column; gap: 5px; margin-top: 5px;">
+                                <div style="display: flex; align-items: center; gap: 5px;"><label for="r-slider" style="width: 20px;">R:</label><input type="range" id="r-slider" min="0" max="255" step="1" style="flex-grow: 1;"></div>
+                                <div style="display: flex; align-items: center; gap: 5px;"><label for="g-slider" style="width: 20px;">G:</label><input type="range" id="g-slider" min="0" max="255" step="1" style="flex-grow: 1;"></div>
+                                <div style="display: flex; align-items: center; gap: 5px;"><label for="b-slider" style="width: 20px;">B:</label><input type="range" id="b-slider" min="0" max="255" step="1" style="flex-grow: 1;"></div>
+                            </div>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <label for="light-slider" style="font-size: 14px;">Light</label>
+                            <input type="range" id="light-slider" min="50" max="500" step="10" value="100" style="flex-grow: 1;">
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 10px; margin-top: 5px;">
+                            <label for="light-type-select" style="font-size: 14px;">Type</label>
+                            <select id="light-type-select" style="flex-grow: 1; background-color: #444; color: white; border: 1px solid #555; padding: 5px;">
+                                <option value="Directional">Directional</option>
+                                <option value="Point">Point</option>
+                                <option value="Spot">Spot</option>
+                                <option value="Ambient">Ambient</option>
+                            </select>
                         </div>
                     </div>
-                    <div>
-                        <label for="light-slider" style="font-size: 14px;">Light</label>
-                        <div style="display: flex; align-items: center; gap: 5px;">
-                            <input type="range" id="light-slider" min="50" max="200" step="10" value="100" style="flex-grow: 1;">
-                        </div>
+                </div>
+                <hr>
+                <div class="collapsible-container collapsed">
+                    <h4 class="collapsible-header">Help</h4>
+                    <div class="collapsible-content">
+                        <ul style="padding-left: 20px; font-size: 14px; margin-top: 0;">
+                            <li><b>Trigger + Grip:</b> Scale Model</li>
+                            <li><b>Trigger:</b> Move Model Up/Down</li>
+                            <li><b>Grip:</b> Rotate Model</li>
+                            <li><b>Thumbstick:</b> Move Model on Floor</li>
+                            <li><b>A/X Button:</b> Exit VR/AR</li>
+                        </ul>
                     </div>
                 </div>
-            </div>
-            <hr>
-            <div class="collapsible-container collapsed">
-                <h4 class="collapsible-header">Help</h4>
-                <div class="collapsible-content">
-                    <ul style="padding-left: 20px; font-size: 14px; margin-top: 0;">
-                        <li><b>Trigger + Grip:</b> Scale Model</li>
-                        <li><b>Trigger:</b> Move Model Up/Down</li>
-                        <li><b>Grip:</b> Rotate Model</li>
-                        <li><b>Thumbstick:</b> Move Model on Floor</li>
-                        <li><b>A/X Button:</b> Exit VR/AR</li>
-                    </ul>
+                <hr>
+                <div class="collapsible-container">
+                    <h4 id="sample-models-header" class="collapsible-header">Sample Models</h4>
+                    <div class="collapsible-content">
+                        <div id="sample-models-list"></div>
+                    </div>
                 </div>
+                <hr>
             </div>
-            <hr>
-            <div class="collapsible-container">
-                <h4 id="sample-models-header" class="collapsible-header">Sample Models</h4>
-                <div class="collapsible-content">
-                    <div id="sample-models-list"></div>
-                </div>
-            </div>
-            <hr>
-            <div id="version-info" style="font-size: 12px; color: #888; position: absolute; bottom: 10px;">Version: 2.2.0</div>
+            <div id="version-info" style="font-size: 12px; color: #888; position: absolute; bottom: 10px;">Version: 2.3.0</div>
         </div>
     </div>
     <div id="fps-counter" style="position: absolute; top: 10px; right: 10px; color: white; background: rgba(0,0,0,0.5); padding: 5px; font-family: sans-serif; display: none; z-index: 10;"></div>
@@ -219,7 +236,8 @@
                 antialias: JSON.parse(localStorage.getItem('settings.antialias')) ?? true,
                 showFPS: JSON.parse(localStorage.getItem('settings.showFPS')) ?? false,
                 vrBackgroundColor: localStorage.getItem('settings.vrBackgroundColor') ?? '#444444',
-                lightIntensity: JSON.parse(localStorage.getItem('settings.lightIntensity')) ?? 1.0
+                lightIntensity: JSON.parse(localStorage.getItem('settings.lightIntensity')) ?? 1.0,
+                lightType: localStorage.getItem('settings.lightType') ?? 'Directional'
             };
 
             const antialiasToggle = document.getElementById('antialias-toggle');
@@ -263,11 +281,22 @@
             lightSlider.value = settings.lightIntensity * 100;
             lightSlider.addEventListener('input', (event) => {
                 const newIntensity = parseFloat(event.target.value) / 100;
+                settings.lightIntensity = newIntensity;
                 localStorage.setItem('settings.lightIntensity', newIntensity);
-                const directionalLight = scene.getObjectByName('main_directional_light');
-                if(directionalLight) {
-                    directionalLight.intensity = newIntensity;
+                const mainLight = scene.getObjectByName('main_light');
+                if (mainLight && typeof mainLight.intensity !== 'undefined') {
+                    // Ambient light is much stronger globally, so we scale its intensity down to be comparable.
+                    mainLight.intensity = mainLight.isAmbientLight ? newIntensity * 0.5 : newIntensity;
                 }
+            });
+
+            const lightTypeSelect = document.getElementById('light-type-select');
+            lightTypeSelect.value = settings.lightType;
+            lightTypeSelect.addEventListener('change', (event) => {
+                const newType = event.target.value;
+                settings.lightType = newType;
+                localStorage.setItem('settings.lightType', newType);
+                updateLightSource();
             });
 
             const clearButton = document.getElementById('clear-button');
@@ -420,19 +449,54 @@
                 const groundColor = 0xB97A20;  // brownish orange
                 const intensity = 1;
                 const light = new THREE.HemisphereLight(skyColor, groundColor, intensity);
+                light.name = 'hemisphere_light';
                 scene.add(light);
             }
 
-            {
+            function updateLightSource() {
+                // Remove existing main light
+                const existingLight = scene.getObjectByName('main_light');
+                if (existingLight) {
+                    if (existingLight.target) {
+                        scene.remove(existingLight.target);
+                    }
+                    scene.remove(existingLight);
+                }
+
                 const color = 0xFFFFFF;
                 const intensity = settings.lightIntensity;
-                const light = new THREE.DirectionalLight(color, intensity);
-                light.name = 'main_directional_light';
-                light.position.set(0, 10, 5);
-                light.target.position.set(-5, 0, 0);
-                scene.add(light);
-                scene.add(light.target);
+                let light;
+
+                switch (settings.lightType) {
+                    case 'Directional':
+                        light = new THREE.DirectionalLight(color, intensity);
+                        light.position.set(0, 10, 5);
+                        light.target.position.set(-5, 0, 0);
+                        scene.add(light.target);
+                        break;
+                    case 'Point':
+                        light = new THREE.PointLight(color, intensity, 100); // distance = 100
+                        light.position.set(0, 5, 5);
+                        break;
+                    case 'Spot':
+                        light = new THREE.SpotLight(color, intensity, 100, Math.PI / 8, 0.5, 1); // distance, angle, penumbra, decay
+                        light.position.set(0, 10, 5);
+                        light.target.position.set(0, 0, 0);
+                        scene.add(light.target);
+                        break;
+                    case 'Ambient':
+                        // Ambient light is much stronger globally, so we scale its intensity down to be comparable.
+                        light = new THREE.AmbientLight(color, intensity * 0.5);
+                        break;
+                }
+
+                if (light) {
+                    light.name = 'main_light';
+                    scene.add(light);
+                }
             }
+
+            updateLightSource(); // Initial light setup
 
             const gltfLoader = new GLTFLoader();
             const fbxLoader = new FBXLoader();
