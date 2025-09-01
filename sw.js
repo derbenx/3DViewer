@@ -1,4 +1,4 @@
-const CACHE_NAME = 'gltf-viewer-v5';
+const CACHE_NAME = 'gltf-viewer-v6';
 const PRECACHE_ASSETS = [
     '/',
     'index.html',
