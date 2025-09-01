@@ -12,6 +12,31 @@ class VRButton {
 
 		function showEnterVR( /*device*/ ) {
 
+			let currentSession = null;
+
+			async function onSessionStarted( session ) {
+
+				session.addEventListener( 'end', onSessionEnded );
+
+				await renderer.xr.setSession( session );
+				button.textContent = 'EXIT VR';
+
+				currentSession = session;
+
+			}
+
+			function onSessionEnded( /*event*/ ) {
+
+				currentSession.removeEventListener( 'end', onSessionEnded );
+
+				button.textContent = 'ENTER VR';
+
+				currentSession = null;
+
+			}
+
+			//
+
 			button.style.display = '';
 
 			button.style.cursor = 'pointer';
@@ -20,33 +45,39 @@ class VRButton {
 
 			button.textContent = 'ENTER VR';
 
-			button.onmouseenter = function () { button.style.opacity = '1.0'; };
-			button.onmouseleave = function () { button.style.opacity = '0.5'; };
+			button.onmouseenter = function () {
+
+				button.style.opacity = '1.0';
+
+			};
+
+			button.onmouseleave = function () {
+
+				button.style.opacity = '0.5';
+
+			};
 
 			button.onclick = function () {
 
-				if ( renderer.xr.isPresenting ) {
+				if ( currentSession === null ) {
 
-					renderer.xr.getSession().end();
+					// WebXR's requestReferenceSpace only works if the corresponding feature
+					// was requested at session creation time. For simplicity, just ask for
+					// the interesting ones as optional features, but be aware that the
+					// requestReferenceSpace call will fail if it turns out to be unavailable.
+					// ('local' is always available for immersive sessions and doesn't need to
+					// be requested separately.)
+
+					const sessionInit = { optionalFeatures: [ 'local-floor', 'bounded-floor', 'hand-tracking', 'layers' ] };
+					navigator.xr.requestSession( 'immersive-vr', sessionInit ).then( onSessionStarted );
 
 				} else {
 
-					const sessionInit = { optionalFeatures: [ 'local-floor', 'bounded-floor', 'hand-tracking', 'layers' ] };
-					navigator.xr.requestSession( 'immersive-vr', sessionInit ).then( ( session ) => {
-						renderer.xr.setSession( session );
-					} );
+					currentSession.end();
 
 				}
 
 			};
-
-			// Keep button text updated
-			renderer.xr.addEventListener( 'sessionstart', () => {
-				button.textContent = 'EXIT VR';
-			} );
-			renderer.xr.addEventListener( 'sessionend', () => {
-				button.textContent = 'ENTER VR';
-			} );
 
 		}
 

@@ -1,6 +1,5 @@
-const CACHE_NAME = 'gltf-viewer-v2'; // Increment cache version
+const CACHE_NAME = 'gltf-viewer-v2';
 const PRECACHE_ASSETS = [
-    // '/', // Removing root path to avoid potential redirect issues during install
     '/index.html',
     '/js/three/build/three.module.js',
     '/js/three/examples/jsm/controls/OrbitControls.js',
@@ -10,7 +9,9 @@ const PRECACHE_ASSETS = [
     '/js/three/examples/jsm/loaders/STLLoader.js',
     '/js/three/examples/jsm/webxr/VRButton.js',
     '/js/three/examples/jsm/webxr/ARButton.js',
-    '/js/three/examples/jsm/libs/fflate.module.js'
+    '/js/three/examples/jsm/libs/fflate.module.js',
+    '/js/three/examples/jsm/webxr/XRControllerModelFactory.js',
+    '/js/three/examples/jsm/libs/motion-controllers.module.js'
 ];
 
 self.addEventListener('install', event => {

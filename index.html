@@ -78,17 +78,17 @@
         }
 
         #sample-models-list {
-            max-height: 150px;
+            max-height: 200px;
             overflow-y: auto;
             background: rgba(0,0,0,0.2);
             border-radius: 5px;
-            padding: 5px;
+            padding: 10px;
             margin-top: 5px;
         }
 
         #sample-models-list button {
-            background-color: #444;
-            border: 1px solid #555;
+            background-color: #555;
+            border: 1px solid #666;
             color: white;
             padding: 8px 12px;
             margin-bottom: 5px;
@@ -132,7 +132,7 @@
                 </div>
             </div>
             <hr>
-            <div id="version-info" style="font-size: 12px; color: #888; position: absolute; bottom: 10px;">Version: 1.5.0</div>
+            <div id="version-info" style="font-size: 12px; color: #888; position: absolute; bottom: 10px;">Version: 2.0.0</div>
         </div>
     </div>
     <div id="fps-counter" style="position: absolute; top: 10px; right: 10px; color: white; background: rgba(0,0,0,0.5); padding: 5px; font-family: sans-serif; display: none; z-index: 10;"></div>
@@ -157,6 +157,58 @@
         import { STLLoader } from 'three/addons/loaders/STLLoader.js';
 
         function main() {
+            // --- Settings ---
+            const settings = {
+                antialias: JSON.parse(localStorage.getItem('settings.antialias')) ?? true,
+                showFPS: JSON.parse(localStorage.getItem('settings.showFPS')) ?? false,
+                vrBackgroundColor: localStorage.getItem('settings.vrBackgroundColor') ?? '#444444'
+            };
+
+            const antialiasToggle = document.getElementById('antialias-toggle');
+            antialiasToggle.checked = settings.antialias;
+            antialiasToggle.addEventListener('change', (event) => {
+                localStorage.setItem('settings.antialias', event.target.checked);
+                location.reload();
+            });
+
+            const fpsToggle = document.getElementById('fps-toggle');
+            fpsToggle.checked = settings.showFPS;
+            fpsToggle.addEventListener('change', (event) => {
+                localStorage.setItem('settings.showFPS', event.target.checked);
+                location.reload();
+            });
+
+            const rSlider = document.getElementById('r-slider');
+            const gSlider = document.getElementById('g-slider');
+            const bSlider = document.getElementById('b-slider');
+
+            const initialColor = new THREE.Color(settings.vrBackgroundColor);
+            rSlider.value = Math.round(initialColor.r * 255);
+            gSlider.value = Math.round(initialColor.g * 255);
+            bSlider.value = Math.round(initialColor.b * 255);
+
+            function updateColorFromSliders() {
+                const r = parseInt(rSlider.value);
+                const g = parseInt(gSlider.value);
+                const b = parseInt(bSlider.value);
+                const color = new THREE.Color(`rgb(${r}, ${g}, ${b})`);
+                localStorage.setItem('settings.vrBackgroundColor', color.getStyle());
+                currentBackground = color;
+                scene.background = currentBackground;
+            }
+
+            rSlider.addEventListener('input', updateColorFromSliders);
+            gSlider.addEventListener('input', updateColorFromSliders);
+            bSlider.addEventListener('input', updateColorFromSliders);
+
+            const clearButton = document.getElementById('clear-button');
+            clearButton.addEventListener('click', () => {
+                location.reload();
+            });
+            // --- End Settings ---
+
+            let currentBackground = new THREE.Color(settings.vrBackgroundColor);
+
             const panel = document.getElementById('side-panel');
             const toggleButton = document.getElementById('panel-toggle-button');
 
@@ -165,7 +217,7 @@
             });
 
             const canvas = document.querySelector('#c');
-            const renderer = new THREE.WebGLRenderer({canvas, antialias: true, alpha: true});
+            const renderer = new THREE.WebGLRenderer({canvas, antialias: settings.antialias, alpha: true});
             renderer.xr.enabled = true;
 
             // Set a reference space type that is compatible with most AR devices.
@@ -182,6 +234,8 @@
 
                 if (session.environmentBlendMode === 'additive' || session.environmentBlendMode === 'alpha-blend') {
                     scene.background = null;
+                } else {
+                    scene.background = currentBackground;
                 }
 
                 const model = scene.getObjectByName('user_model');
@@ -198,8 +252,8 @@
                     box.getSize(size);
                     const maxDim = Math.max(size.x, size.y, size.z);
 
-                    // Avoid division by zero if model has no size
-                    if (maxDim > 0) {
+                    // Avoid division by zero or tiny numbers if model has no size
+                    if (maxDim > 0.001) {
                         // Target size for VR (e.g., 1.5 meters on its longest side)
                         const targetSize = 1.5;
                         const scaleFactor = targetSize / maxDim;
@@ -219,7 +273,7 @@
 
             renderer.xr.addEventListener('sessionend', () => {
                 console.log('XR session ended.');
-                scene.background = new THREE.Color('black');
+                scene.background = currentBackground;
                 const model = scene.getObjectByName('user_model');
                 if (model && originalModelInfo) {
                     model.scale.copy(originalModelInfo.scale);
@@ -271,6 +325,7 @@
 
             let gripPressed = [false, false];
             let triggerPressed = [false, false];
+            let exitButtonPressed = [false, false];
 
             controller1.addEventListener('connected', function ( event ) {
                 console.log('Controller 0 Connected.');
@@ -289,7 +344,7 @@
             controller2.addEventListener('selectend', () => { triggerPressed[1] = false; });
             controller2.addEventListener('squeezestart', () => { gripPressed[1] = true; });
             controller2.addEventListener('squeezeend', () => { gripPressed[1] = false; });
-            scene.background = new THREE.Color('black');
+            scene.background = currentBackground;
 
             {
                 const skyColor = 0xB1E1FF;  // light blue
@@ -313,14 +368,17 @@
             const fbxLoader = new FBXLoader();
             const objLoader = new OBJLoader();
             const stlLoader = new STLLoader();
+            const textureLoader = new THREE.TextureLoader();
 
             function setModel(object) {
                 // The object could be a Group from GLTF/FBX/OBJ or a Mesh from STL
 
-                // Ensure the model rotates around its center
+                // Ensure the model scales from the bottom
                 const box = new THREE.Box3().setFromObject(object);
                 const center = box.getCenter(new THREE.Vector3());
-                object.position.sub(center); // Center the model's geometry
+                object.position.x -= center.x;
+                object.position.y -= box.min.y;
+                object.position.z -= center.z;
 
                 const modelGroup = new THREE.Group();
                 modelGroup.name = 'user_model';
@@ -345,60 +403,117 @@
                 controls.update();
             }
 
-            const fileInput = document.getElementById('file-input');
-            fileInput.addEventListener('change', (event) => {
-                const file = event.target.files[0];
-                if (!file) return;
-
+            async function loadModelFromFile(file) {
                 const filename = file.name.toLowerCase();
                 const extension = filename.split('.').pop();
-                const reader = new FileReader();
+                const imageExtensions = ['jpg', 'jpeg', 'png'];
 
-                reader.onload = (e) => {
-                    const contents = e.target.result;
-
-                    try {
-                        if (extension === 'gltf' || extension === 'glb') {
-                            // GLTFLoader is async
-                            gltfLoader.parse(contents, '', (gltf) => {
-                                setModel(gltf.scene);
-                            }, (error) => {
-                                alert(`An error occurred parsing the GLTF model: ${error.message}`);
-                                console.error(error);
-                            });
-                        } else {
-                            // Other loaders are sync
-                            let object;
-                            switch (extension) {
-                                case 'fbx':
-                                    object = fbxLoader.parse(contents);
-                                    break;
-                                case 'obj':
-                                    object = objLoader.parse(contents);
-                                    break;
-                                case 'stl':
-                                    const geometry = stlLoader.parse(contents);
-                                    const material = new THREE.MeshStandardMaterial({color: 0xAAAAAA, metalness: 0.1, roughness: 0.75});
-                                    object = new THREE.Mesh(geometry, material);
-                                    break;
-                                default:
-                                    alert(`Unsupported file type: .${extension}`);
-                                    return;
-                            }
-                            setModel(object);
-                        }
-                    } catch (err) {
-                        alert(`An error occurred loading the file: ${err.message}`);
-                        console.error(err);
-                    }
-                };
-
-                const binaryExtensions = ['glb', 'stl', 'fbx'];
-                if (binaryExtensions.includes(extension)) {
-                    reader.readAsArrayBuffer(file);
-                } else {
-                    reader.readAsText(file);
+                if (imageExtensions.includes(extension)) {
+                    const imageURL = URL.createObjectURL(file);
+                    textureLoader.load(imageURL, (texture) => {
+                        texture.mapping = THREE.EquirectangularReflectionMapping;
+                        scene.background = texture;
+                        scene.environment = texture;
+                        currentBackground = texture; // Set as current background
+                        URL.revokeObjectURL(imageURL);
+                    });
+                    return;
                 }
+
+                let contents;
+                try {
+                    const binaryExtensions = ['glb', 'stl', 'fbx'];
+                    if (binaryExtensions.includes(extension)) {
+                        contents = await file.arrayBuffer();
+                    } else {
+                        contents = await file.text();
+                    }
+                } catch (e) {
+                    alert(`Could not read file: ${e.message}`);
+                    console.error(e);
+                    return;
+                }
+
+                try {
+                    if (extension === 'gltf' || extension === 'glb') {
+                        gltfLoader.parse(contents, '', (gltf) => {
+                            setModel(gltf.scene);
+                        }, (error) => {
+                            alert(`An error occurred parsing the GLTF model: ${error.message}`);
+                            console.error(error);
+                        });
+                    } else {
+                        let object;
+                        switch (extension) {
+                            case 'fbx':
+                                object = fbxLoader.parse(contents, '');
+                                break;
+                            case 'obj':
+                                object = objLoader.parse(contents);
+                                break;
+                            case 'stl':
+                                const geometry = stlLoader.parse(contents);
+                                const material = new THREE.MeshStandardMaterial({color: 0xAAAAAA, metalness: 0.1, roughness: 0.75});
+                                object = new THREE.Mesh(geometry, material);
+                                break;
+                            default:
+                                alert(`Unsupported file type: .${extension}`);
+                                return;
+                        }
+                        setModel(object);
+                    }
+                } catch (err) {
+                    alert(`An error occurred loading the model: ${err.message}`);
+                    console.error(err);
+                }
+            }
+
+            const browseButton = document.getElementById('browse-button');
+            const fallbackInput = document.getElementById('file-input-fallback');
+
+            browseButton.addEventListener('click', async () => {
+                if (window.showOpenFilePicker) {
+                    try {
+                        const pickerOpts = {
+                            types: [
+                                {
+                                    description: '3D Models and Images',
+                                    accept: {
+                                        'model/gltf-binary': ['.glb'],
+                                        'model/gltf+json': ['.gltf'],
+                                        'model/x-fbx': ['.fbx'],
+                                        'model/obj': ['.obj'],
+                                        'model/stl': ['.stl'],
+                                        'image/jpeg': ['.jpg', '.jpeg'],
+                                        'image/png': ['.png'],
+                                    }
+                                },
+                            ],
+                            excludeAcceptAllOption: true,
+                            multiple: false
+                        };
+                        const [fileHandle] = await window.showOpenFilePicker(pickerOpts);
+                        const file = await fileHandle.getFile();
+                        loadModelFromFile(file);
+                    } catch (err) {
+                        // AbortError is thrown if the user closes the picker
+                        if (err.name !== 'AbortError') {
+                            alert(`Error opening file: ${err.message}`);
+                            console.error(err);
+                        }
+                    }
+                } else {
+                    fallbackInput.click();
+                }
+            });
+
+            fallbackInput.addEventListener('change', (event) => {
+                const file = event.target.files[0];
+                if (file) {
+                    loadModelFromFile(file);
+                }
+                // Reset fallback input
+                event.target.value = '';
             });
 
             const listContainer = document.getElementById('sample-models-list');
@@ -456,8 +571,8 @@
                   .normalize();
 
               camera.position.copy(direction.multiplyScalar(distance).add(boxCenter));
-              camera.near = boxSize / 100;
-              camera.far = boxSize * 100;
+              camera.near = 0.01;
+              camera.far = boxSize * 10;
               camera.updateProjectionMatrix();
               camera.lookAt(boxCenter.x, boxCenter.y, boxCenter.z);
             }
@@ -476,6 +591,16 @@
             }
 
             const clock = new THREE.Clock();
+            const fpsCounter = {
+                element: document.getElementById('fps-counter'),
+                frames: 0,
+                lastTime: performance.now()
+            };
+
+            if (settings.showFPS) {
+                fpsCounter.element.style.display = 'block';
+            }
+
 
             function handleControllerInput(timeDelta) {
                 if (renderer.xr.isPresenting) {
@@ -487,28 +612,30 @@
                             if (model) {
                                 const x = controller.gamepad.axes[2];
                                 const z = controller.gamepad.axes[3];
-                                const deadzone = 0.2;
+                                const deadzone = 0.25;
 
-                                if (triggerPressed[i]) {
-                                    // Trigger: Rotate Y and Move Y
-                                    const rotationSpeed = 1.5; // radians per second
-                                    const verticalSpeed = 2; // meters per second
-                                    if (Math.abs(x) > deadzone) {
-                                        model.rotation.y -= x * rotationSpeed * timeDelta;
-                                    }
-                                    if (Math.abs(z) > deadzone) {
-                                        model.position.y -= z * verticalSpeed * timeDelta;
-                                    }
-                                } else if (gripPressed[i]) {
-                                    // Grip: Scale
+                                if (triggerPressed[i] && gripPressed[i]) {
+                                    // Grip + Trigger: Scale
                                     const scaleSpeed = 0.5;
                                     if (Math.abs(z) > deadzone) {
                                         const scaleFactor = 1.0 - z * scaleSpeed * timeDelta;
                                         model.scale.multiplyScalar(scaleFactor);
                                     }
+                                } else if (triggerPressed[i]) {
+                                    // Trigger: Move Y
+                                    const verticalSpeed = 1.0;
+                                    if (Math.abs(z) > deadzone) {
+                                        model.position.y -= z * verticalSpeed * timeDelta;
+                                    }
+                                } else if (gripPressed[i]) {
+                                    // Grip: Rotate Y
+                                    const rotationSpeed = 1.5; // radians per second
+                                    if (Math.abs(x) > deadzone) {
+                                        model.rotation.y -= x * rotationSpeed * timeDelta;
+                                    }
                                 } else {
-                                    // No button: Translate X/Z on the floor
-                                    const moveSpeed = 2; // meters per second
+                                    // No button: Translate X/Z on the floor (slower)
+                                    const moveSpeed = 1.0; // meters per second
                                     if (Math.abs(x) > deadzone) {
                                         model.position.x += x * moveSpeed * timeDelta;
                                     }
@@ -519,18 +646,37 @@
                             }
 
                             // Exit VR button is independent of other controls
-                            if (controller.gamepad.buttons.length > 4 && controller.gamepad.buttons[4].pressed) {
-                                const session = renderer.xr.getSession();
-                                if (session) {
-                                    session.end();
+                            if (controller.gamepad.buttons.length > 5 && controller.gamepad.buttons[5].pressed) {
+                                if (!exitButtonPressed[i]) {
+                                    exitButtonPressed[i] = true;
+                                    // Find the currently active button (VR or AR) and click it
+                                    // This ensures the same exit logic is used everywhere.
+                                    const vrButton = document.getElementById('VRButton');
+                                    const arButton = document.getElementById('ARButton');
+                                    if (vrButton && vrButton.textContent.includes('EXIT')) {
+                                        vrButton.click();
+                                    } else if (arButton && arButton.textContent.includes('STOP')) {
+                                        arButton.click();
+                                    }
                                 }
+                            } else {
+                                exitButtonPressed[i] = false;
                             }
                         }
                     }
                 }
             }
 
-            function render() {
+            function render(time) {
+                if (settings.showFPS) {
+                    fpsCounter.frames++;
+                    if (time >= fpsCounter.lastTime + 1000) {
+                        fpsCounter.element.textContent = `${fpsCounter.frames} FPS`;
+                        fpsCounter.lastTime = time;
+                        fpsCounter.frames = 0;
+                    }
+                }
+
                 const delta = clock.getDelta();
                 handleControllerInput(delta);
 
