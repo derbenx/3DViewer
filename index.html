@@ -72,8 +72,31 @@
             font-size: 14px;
         }
 
-        #webxr-buttons button:hover {
+        #webxr-buttons button:hover, #panel-content button:hover {
             background-color: #555;
+            box-shadow: 0 0 8px 2px rgba(80, 200, 80, 0.5);
+        }
+
+        #sample-models-list {
+            max-height: 200px;
+            overflow-y: auto;
+            background: rgba(0,0,0,0.2);
+            border-radius: 5px;
+            padding: 10px;
+            margin-top: 5px;
+        }
+
+        #sample-models-list button {
+            background-color: #555;
+            border: 1px solid #666;
+            color: white;
+            padding: 8px 12px;
+            margin-bottom: 5px;
+            width: 100%;
+            text-align: left;
+            cursor: pointer;
+            display: block;
+            box-sizing: border-box;
         }
     </style>
 </head>
@@ -88,7 +111,7 @@
             <input type="file" id="file-input-fallback" accept=".gltf,.glb,.fbx,.obj,.stl,.jpg,.jpeg,.png" style="display: none;" />
             <div id="webxr-buttons"></div>
             <hr>
-            <h4>Sample Models</h4>
+            <h4 id="sample-models-header">Sample Models</h4>
             <div id="sample-models-list"></div>
             <hr>
             <h4>Settings</h4>
@@ -109,7 +132,7 @@
                 </div>
             </div>
             <hr>
-            <div id="version-info" style="font-size: 12px; color: #888; position: absolute; bottom: 10px;">Version: 1.4.4</div>
+            <div id="version-info" style="font-size: 12px; color: #888; position: absolute; bottom: 10px;">Version: 1.4.6</div>
         </div>
     </div>
     <div id="fps-counter" style="position: absolute; top: 10px; right: 10px; color: white; background: rgba(0,0,0,0.5); padding: 5px; font-family: sans-serif; display: none; z-index: 10;"></div>
@@ -679,7 +702,7 @@
             });
         }
 
-        fetch('get_models.php')
+        fetch('get_models.php', { cache: 'no-store' })
             .then(response => {
                 if (!response.ok) {
                     throw new Error('Network response was not ok');
@@ -689,10 +712,24 @@
             .then(populateSampleModels)
             .catch(error => {
                 console.error('Error fetching sample models:', error);
+                document.getElementById('sample-models-header').textContent = 'Offline';
                 populateSampleModels(null);
             });
 
         main();
+    </script>
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/sw.js')
+                    .then(registration => {
+                        console.log('Service Worker registered with scope:', registration.scope);
+                    })
+                    .catch(error => {
+                        console.error('Service Worker registration failed:', error);
+                    });
+            });
+        }
     </script>
 </body>
 </html>
