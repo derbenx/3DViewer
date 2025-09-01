@@ -1,4 +1,4 @@
-const CACHE_NAME = 'gltf-viewer-v4';
+const CACHE_NAME = 'gltf-viewer-v5';
 const PRECACHE_ASSETS = [
     '/',
     'index.html',
@@ -52,35 +52,42 @@ self.addEventListener('fetch', event => {
         return;
     }
 
-    // For all other requests, implement a cache-first, then network strategy.
+    // For navigation requests (e.g., loading the page), use a network-first strategy.
+    if (event.request.mode === 'navigate') {
+        event.respondWith(
+            (async () => {
+                try {
+                    // 1. Try to fetch from the network.
+                    const networkResponse = await fetch(event.request);
+                    // 2. If successful, put a copy in the cache.
+                    const cache = await caches.open(CACHE_NAME);
+                    await cache.put(event.request, networkResponse.clone());
+                    // 3. Return the network response.
+                    return networkResponse;
+                } catch (error) {
+                    // 4. If the network fails, try to serve from the cache.
+                    console.log('Network request failed, trying to serve from cache.');
+                    const cache = await caches.open(CACHE_NAME);
+                    return await cache.match(event.request) || await cache.match('/index.html');
+                }
+            })()
+        );
+        return;
+    }
+
+    // For all other requests (assets like JS, CSS), use a cache-first strategy.
     event.respondWith(
-        caches.open(CACHE_NAME).then(async (cache) => {
+        (async () => {
+            const cache = await caches.open(CACHE_NAME);
             // 1. Try to get the response from the cache.
             const cachedResponse = await cache.match(event.request);
             if (cachedResponse) {
                 return cachedResponse;
             }
-
-            // 2. If not in cache, try to fetch from the network.
-            try {
-                const networkResponse = await fetch(event.request);
-                // 3. If the fetch is successful, clone the response and store it in the cache.
-                if (networkResponse.ok) {
-                    await cache.put(event.request, networkResponse.clone());
-                }
-                // 4. Return the network response.
-                return networkResponse;
-            } catch (error) {
-                // 5. If the network fails (e.g., offline), and it wasn't in the cache,
-                // there's nothing we can do. The browser will handle the error.
-                // You could optionally return a generic fallback page here.
-                console.error('Fetch failed; returning offline fallback (if any).', error);
-                // For navigation requests, try to return the main app page.
-                if (event.request.mode === 'navigate') {
-                    return await cache.match('/index.html');
-                }
-                return;
-            }
-        })
+            // 2. If not in cache, fetch from the network, cache it, and return the response.
+            const networkResponse = await fetch(event.request);
+            await cache.put(event.request, networkResponse.clone());
+            return networkResponse;
+        })()
     );
 });
