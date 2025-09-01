@@ -1,5 +1,6 @@
-const CACHE_NAME = 'gltf-viewer-v3';
+const CACHE_NAME = 'gltf-viewer-v4';
 const PRECACHE_ASSETS = [
+    '/',
     'index.html',
     'js/three/build/three.module.js',
     'js/three/examples/jsm/controls/OrbitControls.js',
@@ -18,10 +19,27 @@ const PRECACHE_ASSETS = [
 
 self.addEventListener('install', event => {
     event.waitUntil(
-        caches.open(CACHE_NAME).then(cache => {
-            console.log('Opened cache and adding precache assets');
-            return cache.addAll(PRECACHE_ASSETS);
-        })
+        caches.open(CACHE_NAME)
+            .then(cache => {
+                console.log('Opened cache and adding precache assets');
+                return cache.addAll(PRECACHE_ASSETS);
+            })
+            .then(() => self.skipWaiting()) // Force the waiting service worker to become the active service worker.
+    );
+});
+
+self.addEventListener('activate', event => {
+    event.waitUntil(
+        caches.keys().then(cacheNames => {
+            return Promise.all(
+                cacheNames.map(cacheName => {
+                    if (cacheName !== CACHE_NAME) {
+                        console.log('Deleting old cache:', cacheName);
+                        return caches.delete(cacheName);
+                    }
+                })
+            );
+        }).then(() => self.clients.claim()) // Take control of all open clients.
     );
 });
 

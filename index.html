@@ -226,6 +226,12 @@
                             <input type="checkbox" id="three-point-lighting-toggle">
                             <label for="three-point-lighting-toggle" style="font-size: 14px;">Enable 3-Point Lighting</label>
                         </div>
+                        <div id="three-point-light-controls" style="display: none;">
+                             <div style="display: flex; align-items: center; gap: 10px;">
+                                <label for="three-point-light-slider" style="font-size: 14px;">Light</label>
+                                <input type="range" id="three-point-light-slider" min="50" max="500" step="10" value="100" style="flex-grow: 1;">
+                            </div>
+                        </div>
                         <div>
                             <label style="font-size: 14px;">VR Background</label>
                             <div id="rgb-sliders" style="display: flex; flex-direction: column; gap: 5px; margin-top: 5px;">
@@ -250,12 +256,6 @@
                                         <div class="custom-select-option" data-value="Ambient">Ambient</div>
                                     </div>
                                 </div>
-                            </div>
-                        </div>
-                        <div id="three-point-light-controls" style="display: none;">
-                             <div style="display: flex; align-items: center; gap: 10px;">
-                                <label for="three-point-light-slider" style="font-size: 14px;">Light</label>
-                                <input type="range" id="three-point-light-slider" min="50" max="500" step="10" value="100" style="flex-grow: 1;">
                             </div>
                         </div>
                     </div>
