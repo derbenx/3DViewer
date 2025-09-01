@@ -223,6 +223,10 @@
                             <label for="fps-toggle" style="font-size: 14px;">Show FPS</label>
                         </div>
                         <div>
+                            <input type="checkbox" id="three-point-lighting-toggle">
+                            <label for="three-point-lighting-toggle" style="font-size: 14px;">Enable 3-Point Lighting</label>
+                        </div>
+                        <div>
                             <label style="font-size: 14px;">VR Background</label>
                             <div id="rgb-sliders" style="display: flex; flex-direction: column; gap: 5px; margin-top: 5px;">
                                 <div style="display: flex; align-items: center; gap: 5px;"><label for="r-slider" style="width: 20px;">R:</label><input type="range" id="r-slider" min="0" max="255" step="1" style="flex-grow: 1;"></div>
@@ -230,20 +234,28 @@
                                 <div style="display: flex; align-items: center; gap: 5px;"><label for="b-slider" style="width: 20px;">B:</label><input type="range" id="b-slider" min="0" max="255" step="1" style="flex-grow: 1;"></div>
                             </div>
                         </div>
-                        <div style="display: flex; align-items: center; gap: 10px;">
-                            <label for="light-slider" style="font-size: 14px;">Light</label>
-                            <input type="range" id="light-slider" min="50" max="500" step="10" value="100" style="flex-grow: 1;">
-                        </div>
-                        <div style="display: flex; align-items: center; gap: 10px; margin-top: 5px;">
-                            <label style="font-size: 14px;">Type</label>
-                            <div id="light-type-select" class="custom-select-container" style="flex-grow: 1;">
-                                <div class="custom-select-value"></div>
-                                <div class="custom-select-options">
-                                    <div class="custom-select-option" data-value="Directional">Directional</div>
-                                    <div class="custom-select-option" data-value="Point">Point</div>
-                                    <div class="custom-select-option" data-value="Spot">Spot</div>
-                                    <div class="custom-select-option" data-value="Ambient">Ambient</div>
+                        <div id="single-light-controls">
+                            <div style="display: flex; align-items: center; gap: 10px;">
+                                <label for="light-slider" style="font-size: 14px;">Light</label>
+                                <input type="range" id="light-slider" min="50" max="500" step="10" value="100" style="flex-grow: 1;">
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 10px; margin-top: 5px;">
+                                <label style="font-size: 14px;">Type</label>
+                                <div id="light-type-select" class="custom-select-container" style="flex-grow: 1;">
+                                    <div class="custom-select-value"></div>
+                                    <div class="custom-select-options">
+                                        <div class="custom-select-option" data-value="Directional">Directional</div>
+                                        <div class="custom-select-option" data-value="Point">Point</div>
+                                        <div class="custom-select-option" data-value="Spot">Spot</div>
+                                        <div class="custom-select-option" data-value="Ambient">Ambient</div>
+                                    </div>
                                 </div>
+                            </div>
+                        </div>
+                        <div id="three-point-light-controls" style="display: none;">
+                             <div style="display: flex; align-items: center; gap: 10px;">
+                                <label for="three-point-light-slider" style="font-size: 14px;">Light</label>
+                                <input type="range" id="three-point-light-slider" min="50" max="500" step="10" value="100" style="flex-grow: 1;">
                             </div>
                         </div>
                     </div>
@@ -301,7 +313,9 @@
                 showFPS: JSON.parse(localStorage.getItem('settings.showFPS')) ?? false,
                 vrBackgroundColor: localStorage.getItem('settings.vrBackgroundColor') ?? '#444444',
                 lightIntensity: JSON.parse(localStorage.getItem('settings.lightIntensity')) ?? 1.0,
-                lightType: localStorage.getItem('settings.lightType') ?? 'Directional'
+                lightType: localStorage.getItem('settings.lightType') ?? 'Directional',
+                threePointLighting: JSON.parse(localStorage.getItem('settings.threePointLighting')) ?? false,
+                threePointLightIntensity: JSON.parse(localStorage.getItem('settings.threePointLightIntensity')) ?? 1.0
             };
 
             const antialiasToggle = document.getElementById('antialias-toggle');
@@ -347,12 +361,39 @@
                 const newIntensity = parseFloat(event.target.value) / 100;
                 settings.lightIntensity = newIntensity;
                 localStorage.setItem('settings.lightIntensity', newIntensity);
-                const mainLight = scene.getObjectByName('main_light');
-                if (mainLight && typeof mainLight.intensity !== 'undefined') {
-                    // Ambient light is much stronger globally, so we scale its intensity down to be comparable.
-                    mainLight.intensity = mainLight.isAmbientLight ? newIntensity * 0.5 : newIntensity;
-                }
+                updateLightSource();
             });
+
+            const threePointLightSlider = document.getElementById('three-point-light-slider');
+            threePointLightSlider.value = settings.threePointLightIntensity * 100;
+            threePointLightSlider.addEventListener('input', (event) => {
+                const newIntensity = parseFloat(event.target.value) / 100;
+                settings.threePointLightIntensity = newIntensity;
+                localStorage.setItem('settings.threePointLightIntensity', newIntensity);
+                updateLightSource();
+            });
+
+            const threePointToggle = document.getElementById('three-point-lighting-toggle');
+            threePointToggle.checked = settings.threePointLighting;
+            threePointToggle.addEventListener('change', (event) => {
+                settings.threePointLighting = event.target.checked;
+                localStorage.setItem('settings.threePointLighting', event.target.checked);
+                toggleLightControls();
+                updateLightSource();
+            });
+
+            function toggleLightControls() {
+                const singleLightControls = document.getElementById('single-light-controls');
+                const threePointLightControls = document.getElementById('three-point-light-controls');
+                if (settings.threePointLighting) {
+                    singleLightControls.style.display = 'none';
+                    threePointLightControls.style.display = 'block';
+                } else {
+                    singleLightControls.style.display = 'block';
+                    threePointLightControls.style.display = 'none';
+                }
+            }
+            toggleLightControls(); // Set initial state
 
             // --- Custom Select Dropdown Logic ---
             const lightTypeSelect = document.getElementById('light-type-select');
@@ -547,73 +588,116 @@
             }
 
             function updateLightForModel(modelBox) {
-                const mainLight = scene.getObjectByName('main_light');
-                if (!mainLight) return;
-
                 const modelSize = modelBox.getSize(new THREE.Vector3()).length();
                 const modelCenter = modelBox.getCenter(new THREE.Vector3());
 
-                // Adjust light based on its type
-                if (mainLight.isDirectionalLight || mainLight.isSpotLight) {
-                    mainLight.position.copy(modelCenter).add(new THREE.Vector3(modelSize * 0.5, modelSize, modelSize * 0.5));
-                    mainLight.target.position.copy(modelCenter);
-                } else if (mainLight.isPointLight) {
-                    mainLight.position.copy(modelCenter).add(new THREE.Vector3(0, modelSize * 0.75, modelSize * 0.75));
-                }
+                if (settings.threePointLighting) {
+                    const keyLight = scene.getObjectByName('key_light');
+                    const fillLight = scene.getObjectByName('fill_light');
+                    const backLight = scene.getObjectByName('back_light');
 
-                // For lights with a 'distance' property, update it based on model size
-                if (typeof mainLight.distance !== 'undefined') {
-                    mainLight.distance = modelSize * 3;
+                    if (keyLight) {
+                        keyLight.position.copy(modelCenter).add(new THREE.Vector3(modelSize * 0.75, modelSize * 0.5, modelSize));
+                        keyLight.target.position.copy(modelCenter);
+                    }
+                    if (fillLight) {
+                        fillLight.position.copy(modelCenter).add(new THREE.Vector3(-modelSize * 0.75, modelSize * 0.5, modelSize));
+                        fillLight.target.position.copy(modelCenter);
+                    }
+                    if (backLight) {
+                        backLight.position.copy(modelCenter).add(new THREE.Vector3(0, modelSize, -modelSize));
+                        backLight.target.position.copy(modelCenter);
+                    }
+                } else {
+                    const mainLight = scene.getObjectByName('main_light');
+                    if (!mainLight) return;
+
+                    // Adjust light based on its type
+                    if (mainLight.isDirectionalLight || mainLight.isSpotLight) {
+                        mainLight.position.copy(modelCenter).add(new THREE.Vector3(modelSize * 0.5, modelSize, modelSize * 0.5));
+                        mainLight.target.position.copy(modelCenter);
+                    } else if (mainLight.isPointLight) {
+                        mainLight.position.copy(modelCenter).add(new THREE.Vector3(0, modelSize * 0.75, modelSize * 0.75));
+                    }
+
+                    // For lights with a 'distance' property, update it based on model size
+                    if (typeof mainLight.distance !== 'undefined') {
+                        mainLight.distance = modelSize * 3;
+                    }
                 }
             }
 
-            function updateLightSource() {
-                // Remove existing main light
-                const existingLight = scene.getObjectByName('main_light');
-                if (existingLight) {
-                    if (existingLight.target) {
-                        scene.remove(existingLight.target);
+            function clearLights() {
+                const lightNames = ['main_light', 'key_light', 'fill_light', 'back_light'];
+                lightNames.forEach(name => {
+                    const light = scene.getObjectByName(name);
+                    if (light) {
+                        if (light.target) {
+                            scene.remove(light.target);
+                        }
+                        scene.remove(light);
                     }
-                    scene.remove(existingLight);
-                }
+                });
+            }
+
+            function updateLightSource() {
+                clearLights(); // Remove all existing lights first
 
                 const color = 0xFFFFFF;
-                const intensity = settings.lightIntensity;
-                let light;
 
-                switch (settings.lightType) {
-                    case 'Directional':
-                        light = new THREE.DirectionalLight(color, intensity);
-                        light.position.set(0, 10, 5);
-                        light.target.position.set(-5, 0, 0);
-                        scene.add(light.target);
-                        break;
-                    case 'Point':
-                        light = new THREE.PointLight(color, intensity, 100); // distance = 100
-                        light.position.set(0, 5, 5);
-                        break;
-                    case 'Spot':
-                        light = new THREE.SpotLight(color, intensity, 100, Math.PI / 8, 0.5, 1); // distance, angle, penumbra, decay
-                        light.position.set(0, 10, 5);
-                        light.target.position.set(0, 0, 0);
-                        scene.add(light.target);
-                        break;
-                    case 'Ambient':
-                        // Ambient light is much stronger globally, so we scale its intensity down to be comparable.
-                        light = new THREE.AmbientLight(color, intensity * 0.5);
-                        break;
+                if (settings.threePointLighting) {
+                    const intensity = settings.threePointLightIntensity;
+                    const keyLight = new THREE.DirectionalLight(color, intensity);
+                    keyLight.name = 'key_light';
+                    scene.add(keyLight);
+                    scene.add(keyLight.target);
+
+                    const fillLight = new THREE.DirectionalLight(color, intensity * 0.5);
+                    fillLight.name = 'fill_light';
+                    scene.add(fillLight);
+                    scene.add(fillLight.target);
+
+                    const backLight = new THREE.DirectionalLight(color, intensity * 0.75);
+                    backLight.name = 'back_light';
+                    scene.add(backLight);
+                    scene.add(backLight.target);
+                } else {
+                    const intensity = settings.lightIntensity;
+                    let light;
+
+                    switch (settings.lightType) {
+                        case 'Directional':
+                            light = new THREE.DirectionalLight(color, intensity);
+                            light.position.set(0, 10, 5);
+                            light.target.position.set(-5, 0, 0);
+                            scene.add(light.target);
+                            break;
+                        case 'Point':
+                            light = new THREE.PointLight(color, intensity, 100); // distance = 100
+                            light.position.set(0, 5, 5);
+                            break;
+                        case 'Spot':
+                            light = new THREE.SpotLight(color, intensity, 100, Math.PI / 8, 0.5, 1); // distance, angle, penumbra, decay
+                            light.position.set(0, 10, 5);
+                            light.target.position.set(0, 0, 0);
+                            scene.add(light.target);
+                            break;
+                        case 'Ambient':
+                            // Ambient light is much stronger globally, so we scale its intensity down to be comparable.
+                            light = new THREE.AmbientLight(color, intensity * 0.5);
+                            break;
+                    }
+                    if (light) {
+                        light.name = 'main_light';
+                        scene.add(light);
+                    }
                 }
 
-                if (light) {
-                    light.name = 'main_light';
-                    scene.add(light);
-
-                    // If a model exists, adjust the new light for it
-                    const model = scene.getObjectByName('user_model');
-                    if (model) {
-                        const modelBox = new THREE.Box3().setFromObject(model);
-                        updateLightForModel(modelBox);
-                    }
+                // If a model exists, adjust the new light(s) for it
+                const model = scene.getObjectByName('user_model');
+                if (model) {
+                    const modelBox = new THREE.Box3().setFromObject(model);
+                    updateLightForModel(modelBox);
                 }
             }
 
