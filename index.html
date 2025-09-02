@@ -713,8 +713,8 @@
             const stlLoader = new STLLoader();
             const textureLoader = new THREE.TextureLoader();
 
-            function loadResource(url, onLoadedCallback) {
-                const filename = url.split('/').pop();
+            function loadResource(url, onLoadedCallback, originalFilename = null) {
+                const filename = originalFilename || url.split('/').pop();
                 const extension = filename.split('.').pop().toLowerCase();
                 const imageExtensions = ['jpg', 'jpeg', 'png'];
 
