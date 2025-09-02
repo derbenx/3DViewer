@@ -286,7 +286,7 @@
                 <hr>
             </div>
             <!-- AGENT_NOTE: Always update this version number when changing files. -->
-            <div id="version-info" style="font-size: 12px; color: #888; position: absolute; bottom: 10px;">Version: 2.5.6</div>
+            <div id="version-info" style="font-size: 12px; color: #888; position: absolute; bottom: 10px;">Version: 2.5.7</div>
         </div>
     </div>
     <div id="fps-counter" style="position: absolute; top: 10px; right: 10px; color: white; background: rgba(0,0,0,0.5); padding: 5px; font-family: sans-serif; display: none; z-index: 10;"></div>
@@ -713,6 +713,67 @@
             const stlLoader = new STLLoader();
             const textureLoader = new THREE.TextureLoader();
 
+            function loadResource(url, onLoadedCallback) {
+                const filename = url.split('/').pop();
+                const extension = filename.split('.').pop().toLowerCase();
+                const imageExtensions = ['jpg', 'jpeg', 'png'];
+
+                const onLoad = (result) => {
+                    if (imageExtensions.includes(extension)) {
+                        result.mapping = THREE.EquirectangularReflectionMapping;
+                        scene.background = result;
+                        scene.environment = result;
+                        currentBackground = result; // Update current background
+                    } else {
+                        let object;
+                        if (result.scene) { // For GLTF
+                            object = result.scene;
+                        } else if (result instanceof THREE.BufferGeometry) { // For STL
+                            const material = new THREE.MeshStandardMaterial({color: 0xAAAAAA, metalness: 0.1, roughness: 0.75});
+                            object = new THREE.Mesh(result, material);
+                        } else { // For FBX, OBJ
+                            object = result;
+                        }
+                        setModel(object);
+                    }
+                    if (onLoadedCallback) onLoadedCallback();
+                };
+
+                const onError = (error) => {
+                    console.error(`An error happened while loading ${url}:`, error);
+                    alert(`Could not load resource: ${filename}. See console for details.`);
+                    if (onLoadedCallback) onLoadedCallback();
+                };
+
+                if (imageExtensions.includes(extension)) {
+                    textureLoader.load(url, onLoad, undefined, onError);
+                    return;
+                }
+
+                let loader;
+                switch (extension) {
+                    case 'gltf':
+                    case 'glb':
+                        loader = gltfLoader;
+                        break;
+                    case 'fbx':
+                        loader = fbxLoader;
+                        break;
+                    case 'obj':
+                        loader = objLoader;
+                        break;
+                    case 'stl':
+                        loader = stlLoader;
+                        break;
+                    default:
+                        alert(`Unsupported file type: .${extension}`);
+                        if (onLoadedCallback) onLoadedCallback();
+                        return;
+                }
+
+                loader.load(url, onLoad, undefined, onError);
+            }
+
             function setModel(object) {
                 // The object could be a Group from GLTF/FBX/OBJ or a Mesh from STL
 
@@ -748,73 +809,13 @@
                 updateLightForModel(newBox);
             }
 
-            async function loadModelFromFile(file) {
-                const filename = file.name.toLowerCase();
-                const extension = filename.split('.').pop();
-                const imageExtensions = ['jpg', 'jpeg', 'png'];
-
-                if (imageExtensions.includes(extension)) {
-                    const imageURL = URL.createObjectURL(file);
-                    textureLoader.load(imageURL, (texture) => {
-                        texture.mapping = THREE.EquirectangularReflectionMapping;
-                        scene.background = texture;
-                        scene.environment = texture;
-                        currentBackground = texture; // Set as current background
-                        URL.revokeObjectURL(imageURL);
-                    });
-                    return;
-                }
-
-                let contents;
-                try {
-                    const binaryExtensions = ['glb', 'stl', 'fbx'];
-                    if (binaryExtensions.includes(extension)) {
-                        contents = await file.arrayBuffer();
-                    } else {
-                        contents = await file.text();
-                    }
-                } catch (e) {
-                    alert(`Could not read file: ${e.message}`);
-                    console.error(e);
-                    return;
-                }
-
-                try {
-                    if (extension === 'gltf' || extension === 'glb') {
-                        gltfLoader.parse(contents, '', (gltf) => {
-                            setModel(gltf.scene);
-                        }, (error) => {
-                            alert(`An error occurred parsing the GLTF model: ${error.message}`);
-                            console.error(error);
-                        });
-                    } else {
-                        let object;
-                        switch (extension) {
-                            case 'fbx':
-                                object = fbxLoader.parse(contents, '');
-                                break;
-                            case 'obj':
-                                object = objLoader.parse(contents);
-                                break;
-                            case 'stl':
-                                const geometry = stlLoader.parse(contents);
-                                const material = new THREE.MeshStandardMaterial({color: 0xAAAAAA, metalness: 0.1, roughness: 0.75});
-                                object = new THREE.Mesh(geometry, material);
-                                break;
-                            default:
-                                alert(`Unsupported file type: .${extension}`);
-                                return;
-                        }
-                        setModel(object);
-                    }
-                } catch (err) {
-                    alert(`An error occurred loading the model: ${err.message}`);
-                    console.error(err);
-                }
-            }
-
             const browseButton = document.getElementById('browse-button');
             const fallbackInput = document.getElementById('file-input-fallback');
+
+            async function handleFile(file) {
+                const url = URL.createObjectURL(file);
+                loadResource(url, () => URL.revokeObjectURL(url));
+            }
 
             browseButton.addEventListener('click', async () => {
                 if (window.showOpenFilePicker) {
@@ -839,9 +840,8 @@
                         };
                         const [fileHandle] = await window.showOpenFilePicker(pickerOpts);
                         const file = await fileHandle.getFile();
-                        loadModelFromFile(file);
+                        handleFile(file);
                     } catch (err) {
-                        // AbortError is thrown if the user closes the picker
                         if (err.name !== 'AbortError') {
                             alert(`Error opening file: ${err.message}`);
                             console.error(err);
@@ -855,10 +855,9 @@
             fallbackInput.addEventListener('change', (event) => {
                 const file = event.target.files[0];
                 if (file) {
-                    loadModelFromFile(file);
+                    handleFile(file);
                 }
-                // Reset fallback input
-                event.target.value = '';
+                event.target.value = ''; // Reset fallback input
             });
 
             const listContainer = document.getElementById('sample-models-list');
@@ -866,43 +865,9 @@
                 if (event.target.tagName !== 'BUTTON') return;
 
                 const modelPath = event.target.dataset.path;
-                if (!modelPath) return;
-
-                const extension = modelPath.split('.').pop().toLowerCase();
-                let loader;
-                let onLoad;
-
-                switch (extension) {
-                    case 'gltf':
-                    case 'glb':
-                        loader = gltfLoader;
-                        onLoad = (gltf) => setModel(gltf.scene);
-                        break;
-                    case 'fbx':
-                        loader = fbxLoader;
-                        onLoad = (object) => setModel(object);
-                        break;
-                    case 'obj':
-                        loader = objLoader;
-                        onLoad = (object) => setModel(object);
-                        break;
-                    case 'stl':
-                        loader = stlLoader;
-                        onLoad = (geometry) => {
-                            const material = new THREE.MeshStandardMaterial({color: 0xAAAAAA, metalness: 0.1, roughness: 0.75});
-                            const mesh = new THREE.Mesh(geometry, material);
-                            setModel(mesh);
-                        };
-                        break;
-                    default:
-                        alert(`Unsupported file type for sample model: .${extension}`);
-                        return;
+                if (modelPath) {
+                    loadResource(modelPath);
                 }
-
-                loader.load(modelPath, onLoad, undefined, (error) => {
-                    console.error(`An error happened while loading the model ${modelPath}:`, error);
-                    alert(`Could not load model ${modelPath}. See console for details.`);
-                });
             });
 
             function frameArea(sizeToFitOnScreen, boxSize, boxCenter, camera) {
