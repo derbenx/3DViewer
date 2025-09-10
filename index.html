@@ -207,12 +207,12 @@
         <button id="panel-toggle-button">☰</button>
         <div id="panel-content">
             <div style="display: flex; gap: 10px; margin-bottom: 15px;">
-                <button id="browse-button" style="flex-grow: 1; padding: 10px; background-color: #444; color: white; border: 1px solid #555; cursor: pointer; font-size: 14px;">Browse Model</button>
-                <button id="browse-image-button" style="flex-grow: 1; padding: 10px; background-color: #444; color: white; border: 1px solid #555; cursor: pointer; font-size: 14px;">Browse Image</button>
+                <button id="browse-button" style="flex-grow: 1; padding: 10px; background-color: #444; color: white; border: 1px solid #555; cursor: pointer; font-size: 14px;">360 or Model</button>
+                <button id="browse-image-button" style="flex-grow: 1; padding: 10px; background-color: #444; color: white; border: 1px solid #555; cursor: pointer; font-size: 14px;">Flat Image</button>
                 <button id="clear-button" style="padding: 10px; background-color: #666; color: white; border: 1px solid #777; cursor: pointer; font-size: 14px;">Clear</button>
             </div>
-            <input type="file" id="file-input-fallback" accept=".gltf,.glb,.fbx,.obj,.stl,.jpg,.jpeg,.png" style="display: none;" />
-            <input type="file" id="image-input-fallback" accept=".jpg,.jpeg,.png" style="display: none;" />
+            <!-- <input type="file" id="file-input-fallback" accept=".gltf,.glb,.fbx,.obj,.stl,.jpg,.jpeg,.png" style="display: none;" /> -->
+            <!-- <input type="file" id="image-input-fallback" accept=".jpg,.jpeg,.png" style="display: none;" /> -->
             <div id="webxr-buttons"></div>
             <div id="main-controls-container">
                 <hr>
@@ -288,7 +288,7 @@
                 <hr>
             </div>
             <!-- AGENT_NOTE: Always update this version number when changing files. -->
-            <div id="version-info" style="font-size: 12px; color: #888; position: absolute; bottom: 10px;">Version: 2.5.9</div>
+            <div id="version-info" style="font-size: 12px; color: #888; position: absolute; bottom: 10px;">Version: 2.6.1</div>
         </div>
     </div>
     <div id="fps-counter" style="position: absolute; top: 10px; right: 10px; color: white; background: rgba(0,0,0,0.5); padding: 5px; font-family: sans-serif; display: none; z-index: 10;"></div>
@@ -849,18 +849,18 @@
                             console.error(err);
                         }
                     }
-                } else {
-                    fallbackInput.click();
-                }
+                } // else {
+                //     fallbackInput.click();
+                // }
             });
 
-            fallbackInput.addEventListener('change', (event) => {
-                const file = event.target.files[0];
-                if (file) {
-                    handleFile(file);
-                }
-                event.target.value = ''; // Reset fallback input
-            });
+            // fallbackInput.addEventListener('change', (event) => {
+            //     const file = event.target.files[0];
+            //     if (file) {
+            //         handleFile(file);
+            //     }
+            //     event.target.value = ''; // Reset fallback input
+            // });
 
             const browseImageButton = document.getElementById('browse-image-button');
             const imageFallbackInput = document.getElementById('image-input-fallback');
@@ -870,10 +870,10 @@
                 textureLoader.load(url, (texture) => {
                     URL.revokeObjectURL(url); // Revoke URL after loading
                     const aspectRatio = texture.image.width / texture.image.height;
-                    const boxHeight = 2; // Arbitrary height
-                    const boxWidth = boxHeight * aspectRatio;
-                    const geometry = new THREE.BoxGeometry(boxWidth, boxHeight, 0.05);
-                    const material = new THREE.MeshStandardMaterial({ map: texture, side: THREE.DoubleSide });
+                    const imageHeight = 2; // Arbitrary height
+                    const imageWidth = imageHeight * aspectRatio;
+                    const geometry = new THREE.PlaneGeometry(imageWidth, imageHeight);
+                    const material = new THREE.MeshStandardMaterial({ map: texture, side: THREE.DoubleSide, transparent: true });
                     const mesh = new THREE.Mesh(geometry, material);
                     setModel(mesh);
                 }, undefined, (error) => {
@@ -908,18 +908,18 @@
                             console.error(err);
                         }
                     }
-                } else {
-                    imageFallbackInput.click();
-                }
+                } // else {
+                //     imageFallbackInput.click();
+                // }
             });
 
-            imageFallbackInput.addEventListener('change', (event) => {
-                const file = event.target.files[0];
-                if (file) {
-                    handleImageFile(file);
-                }
-                event.target.value = ''; // Reset fallback input
-            });
+            // imageFallbackInput.addEventListener('change', (event) => {
+            //     const file = event.target.files[0];
+            //     if (file) {
+            //         handleImageFile(file);
+            //     }
+            //     event.target.value = ''; // Reset fallback input
+            // });
 
             const listContainer = document.getElementById('sample-models-list');
             listContainer.addEventListener('click', (event) => {
