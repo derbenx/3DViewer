@@ -288,7 +288,7 @@
                 <hr>
             </div>
             <!-- AGENT_NOTE: Always update this version number when changing files. -->
-            <div id="version-info" style="font-size: 12px; color: #888; position: absolute; bottom: 10px;">Version: 2.6.2</div>
+            <div id="version-info" style="font-size: 12px; color: #888; position: absolute; bottom: 10px;">Version: 2.6.3</div>
         </div>
     </div>
     <div id="fps-counter" style="position: absolute; top: 10px; right: 10px; color: white; background: rgba(0,0,0,0.5); padding: 5px; font-family: sans-serif; display: none; z-index: 10;"></div>
@@ -565,6 +565,7 @@
             let gripPressed = [false, false];
             let triggerPressed = [false, false];
             let exitButtonPressed = [false, false];
+            let animationPauseButtonPressed = [false, false];
 
             controller1.addEventListener('connected', function ( event ) {
                 console.log('Controller 0 Connected.');
@@ -829,7 +830,7 @@
             }
 
             const browseButton = document.getElementById('browse-button');
-            const fallbackInput = document.getElementById('file-input-fallback');
+            // const fallbackInput = document.getElementById('file-input-fallback');
 
             async function handleFile(file) {
                 const url = URL.createObjectURL(file);
@@ -880,7 +881,7 @@
             // });
 
             const browseImageButton = document.getElementById('browse-image-button');
-            const imageFallbackInput = document.getElementById('image-input-fallback');
+            // const imageFallbackInput = document.getElementById('image-input-fallback');
 
             async function handleImageFile(file) {
                 const url = URL.createObjectURL(file);
@@ -1031,6 +1032,16 @@
                                         model.position.z += z * moveSpeed * timeDelta;
                                     }
                                 }
+                            }
+
+                            // A/X button (usually index 4) for pausing/playing animation
+                            if (controller.gamepad.buttons.length > 4 && controller.gamepad.buttons[4].pressed) {
+                                if (!animationPauseButtonPressed[i] && mixer) {
+                                    animationPauseButtonPressed[i] = true;
+                                    mixer.timeScale = mixer.timeScale === 0 ? 1 : 0; // Toggle pause
+                                }
+                            } else {
+                                animationPauseButtonPressed[i] = false;
                             }
 
                             // Exit VR button is independent of other controls
