@@ -288,7 +288,7 @@
                 <hr>
             </div>
             <!-- AGENT_NOTE: Always update this version number when changing files. -->
-            <div id="version-info" style="font-size: 12px; color: #888; position: absolute; bottom: 10px;">Version: 2.6.1</div>
+            <div id="version-info" style="font-size: 12px; color: #888; position: absolute; bottom: 10px;">Version: 2.6.2</div>
         </div>
     </div>
     <div id="fps-counter" style="position: absolute; top: 10px; right: 10px; color: white; background: rgba(0,0,0,0.5); padding: 5px; font-family: sans-serif; display: none; z-index: 10;"></div>
@@ -313,6 +313,7 @@
         import { STLLoader } from 'three/addons/loaders/STLLoader.js';
 
         function main() {
+            let mixer;
             // --- Settings ---
             const settings = {
                 antialias: JSON.parse(localStorage.getItem('settings.antialias')) ?? true,
@@ -728,15 +729,20 @@
                         currentBackground = result; // Update current background
                     } else {
                         let object;
+                        let animations = [];
                         if (result.scene) { // For GLTF
                             object = result.scene;
+                            animations = result.animations;
                         } else if (result instanceof THREE.BufferGeometry) { // For STL
                             const material = new THREE.MeshStandardMaterial({color: 0xAAAAAA, metalness: 0.1, roughness: 0.75});
                             object = new THREE.Mesh(result, material);
                         } else { // For FBX, OBJ
                             object = result;
+                            if (result.animations && result.animations.length > 0) {
+                                animations = result.animations;
+                            }
                         }
-                        setModel(object);
+                        setModel(object, animations);
                     }
                     if (onLoadedCallback) onLoadedCallback();
                 };
@@ -776,7 +782,12 @@
                 loader.load(url, onLoad, undefined, onError);
             }
 
-            function setModel(object) {
+            function setModel(object, animations = []) {
+                if (mixer) {
+                    mixer.stopAllAction();
+                    mixer = null;
+                }
+
                 // The object could be a Group from GLTF/FBX/OBJ or a Mesh from STL
 
                 // Ensure the model scales from the bottom
@@ -809,6 +820,12 @@
                 controls.update();
 
                 updateLightForModel(newBox);
+
+                if (animations && animations.length) {
+                    mixer = new THREE.AnimationMixer(object);
+                    const action = mixer.clipAction(animations[0]);
+                    action.play();
+                }
             }
 
             const browseButton = document.getElementById('browse-button');
@@ -1049,6 +1066,9 @@
                 }
 
                 const delta = clock.getDelta();
+                if (mixer) {
+                    mixer.update(delta);
+                }
                 handleControllerInput(delta);
 
                 if (resizeRendererToDisplaySize(renderer)) {
