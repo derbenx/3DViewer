@@ -561,11 +561,9 @@
             const controllerModelFactory = new XRControllerModelFactory();
 
             const controllerGrip1 = renderer.xr.getControllerGrip(0);
-            controllerGrip1.add(controllerModelFactory.createControllerModel(controllerGrip1));
             scene.add(controllerGrip1);
 
             const controllerGrip2 = renderer.xr.getControllerGrip(1);
-            controllerGrip2.add(controllerModelFactory.createControllerModel(controllerGrip2));
             scene.add(controllerGrip2);
 
             // Articulated Hand Models
@@ -666,6 +664,9 @@
             controller1.addEventListener('connected', function ( event ) {
                 console.log('Controller 0 Connected.');
                 this.gamepad = event.data.gamepad;
+                if (!event.data.hand) {
+                    controllerGrip1.add(controllerModelFactory.createControllerModel(controllerGrip1));
+                }
             } );
             controller1.addEventListener('selectstart', () => { triggerPressed[0] = true; });
             controller1.addEventListener('selectend', () => { triggerPressed[0] = false; });
@@ -675,6 +676,9 @@
             controller2.addEventListener('connected', function ( event ) {
                 console.log('Controller 1 Connected.');
                 this.gamepad = event.data.gamepad;
+                if (!event.data.hand) {
+                    controllerGrip2.add(controllerModelFactory.createControllerModel(controllerGrip2));
+                }
             } );
             controller2.addEventListener('selectstart', () => { triggerPressed[1] = true; });
             controller2.addEventListener('selectend', () => { triggerPressed[1] = false; });
