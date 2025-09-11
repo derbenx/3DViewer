@@ -572,9 +572,24 @@
             scene.add(controllerGrip2);
 
             // Hand Models
-            const handModel1 = new OculusHandModel(controller1, gltfLoader);
+            const handModel1 = new OculusHandModel(controller1, gltfLoader, (model) => {
+                const handMesh = model.getObjectByProperty('type', 'SkinnedMesh');
+                if (handMesh) {
+                    handMesh.material.visible = false;
+                    const skeletonHelper = new THREE.SkeletonHelper(handMesh);
+                    scene.add(skeletonHelper);
+                }
+            });
             controller1.add(handModel1);
-            const handModel2 = new OculusHandModel(controller2, gltfLoader);
+
+            const handModel2 = new OculusHandModel(controller2, gltfLoader, (model) => {
+                const handMesh = model.getObjectByProperty('type', 'SkinnedMesh');
+                if (handMesh) {
+                    handMesh.material.visible = false;
+                    const skeletonHelper = new THREE.SkeletonHelper(handMesh);
+                    scene.add(skeletonHelper);
+                }
+            });
             controller2.add(handModel2);
 
             // Hand Pointers
