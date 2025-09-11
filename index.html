@@ -606,7 +606,7 @@
                     handModels[handedness] = model;
                     scene.add(model);
 
-                    hand.joints.forEach((joint, jointName) => {
+                    Object.entries(hand.joints).forEach(([jointName, joint]) => {
                         const jointMesh = new THREE.Mesh(jointGeometry, jointMaterial);
                         jointMesh.name = jointName;
                         model.add(jointMesh);
@@ -631,10 +631,10 @@
 
                     if (model && meshes) {
                         let anyJointVisible = false;
-                        if (hand.joints.size > 0) {
+                        if (Object.keys(hand.joints).length > 0) {
                             anyJointVisible = true;
                             // Update joint meshes
-                            hand.joints.forEach((jointSpace, jointName) => {
+                            Object.entries(hand.joints).forEach(([jointName, jointSpace]) => {
                                 const jointMesh = meshes.joints[jointName];
                                 if (jointMesh) {
                                     jointMesh.position.copy(jointSpace.position);
