@@ -575,9 +575,9 @@
             const handModel1 = new OculusHandModel(controller1, gltfLoader, (model) => {
                 const handMesh = model.getObjectByProperty('type', 'SkinnedMesh');
                 if (handMesh) {
-                    handMesh.material.visible = false;
+                    handMesh.visible = false;
                     const skeletonHelper = new THREE.SkeletonHelper(handMesh);
-                    scene.add(skeletonHelper);
+                    model.add(skeletonHelper);
                 }
             });
             controller1.add(handModel1);
@@ -585,9 +585,9 @@
             const handModel2 = new OculusHandModel(controller2, gltfLoader, (model) => {
                 const handMesh = model.getObjectByProperty('type', 'SkinnedMesh');
                 if (handMesh) {
-                    handMesh.material.visible = false;
+                    handMesh.visible = false;
                     const skeletonHelper = new THREE.SkeletonHelper(handMesh);
-                    scene.add(skeletonHelper);
+                    model.add(skeletonHelper);
                 }
             });
             controller2.add(handModel2);
