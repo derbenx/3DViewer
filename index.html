@@ -311,9 +311,6 @@
         import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
         import { OBJLoader } from 'three/addons/loaders/OBJLoader.js';
         import { STLLoader } from 'three/addons/loaders/STLLoader.js';
-        import { OculusHandModel } from 'three/addons/webxr/OculusHandModel.js';
-        import { XRHandMeshModel } from 'three/addons/webxr/XRHandMeshModel.js';
-        import { OculusHandPointerModel } from 'three/addons/webxr/OculusHandPointerModel.js';
 
         function main() {
             let mixer;
@@ -571,37 +568,95 @@
             controllerGrip2.add(controllerModelFactory.createControllerModel(controllerGrip2));
             scene.add(controllerGrip2);
 
-            // Hand Models
-            const handModel1 = new OculusHandModel(controller1, gltfLoader, (model) => {
-                const handMesh = model.getObjectByProperty('type', 'SkinnedMesh');
-                if (handMesh) {
-                    handMesh.visible = false;
-                    const skeletonHelper = new THREE.SkeletonHelper(handMesh);
-                    model.add(skeletonHelper);
+            // Articulated Hand Models
+            const handModels = { left: null, right: null };
+            const handMeshes = { left: { joints: {}, bones: {} }, right: { joints: {}, bones: {} } };
+
+            // Helper to position and orient a cylinder between two points
+            function orientCylinder(cylinder, startPoint, endPoint) {
+                const direction = new THREE.Vector3().subVectors(endPoint, startPoint);
+                const orientation = new THREE.Matrix4();
+                const offsetRotation = new THREE.Matrix4();
+                orientation.lookAt(startPoint, endPoint, new THREE.Vector3(0, 1, 0));
+                offsetRotation.makeRotationX(Math.PI / 2);
+                orientation.multiply(offsetRotation);
+                cylinder.quaternion.setFromRotationMatrix(orientation);
+                cylinder.position.copy(startPoint).add(direction.multiplyScalar(0.5));
+                cylinder.scale.y = direction.length();
+            }
+
+            function setupArticulatedHands() {
+                const BONES = [
+                    ['wrist', 'thumb-metacarpal'], ['thumb-metacarpal', 'thumb-phalanx-proximal'], ['thumb-phalanx-proximal', 'thumb-phalanx-distal'], ['thumb-phalanx-distal', 'thumb-tip'],
+                    ['wrist', 'index-finger-metacarpal'], ['index-finger-metacarpal', 'index-finger-phalanx-proximal'], ['index-finger-phalanx-proximal', 'index-finger-phalanx-intermediate'], ['index-finger-phalanx-intermediate', 'index-finger-phalanx-distal'], ['index-finger-phalanx-distal', 'index-finger-tip'],
+                    ['wrist', 'middle-finger-metacarpal'], ['middle-finger-metacarpal', 'middle-finger-phalanx-proximal'], ['middle-finger-phalanx-proximal', 'middle-finger-phalanx-intermediate'], ['middle-finger-phalanx-intermediate', 'middle-finger-phalanx-distal'], ['middle-finger-phalanx-distal', 'middle-finger-tip'],
+                    ['wrist', 'ring-finger-metacarpal'], ['ring-finger-metacarpal', 'ring-finger-phalanx-proximal'], ['ring-finger-phalanx-proximal', 'ring-finger-phalanx-intermediate'], ['ring-finger-phalanx-intermediate', 'ring-finger-phalanx-distal'], ['ring-finger-phalanx-distal', 'ring-finger-tip'],
+                    ['wrist', 'pinky-finger-metacarpal'], ['pinky-finger-metacarpal', 'pinky-finger-phalanx-proximal'], ['pinky-finger-phalanx-proximal', 'pinky-finger-phalanx-intermediate'], ['pinky-finger-phalanx-intermediate', 'pinky-finger-phalanx-distal'], ['pinky-finger-phalanx-distal', 'pinky-finger-tip'],
+                ];
+
+                const jointGeometry = new THREE.SphereGeometry(0.006, 16, 8);
+                const jointMaterial = new THREE.MeshStandardMaterial({ color: 0x00aaff, roughness: 0.2, metalness: 0.5 });
+                const boneGeometry = new THREE.CylinderGeometry(0.004, 0.004, 1, 8);
+                const boneMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.5, metalness: 0.2 });
+
+                for (let i = 0; i < 2; i++) {
+                    const hand = renderer.xr.getHand(i);
+                    const handedness = i === 0 ? 'left' : 'right';
+                    const model = new THREE.Group();
+                    handModels[handedness] = model;
+                    scene.add(model);
+
+                    hand.joints.forEach((joint, jointName) => {
+                        const jointMesh = new THREE.Mesh(jointGeometry, jointMaterial);
+                        jointMesh.name = jointName;
+                        model.add(jointMesh);
+                        handMeshes[handedness].joints[jointName] = jointMesh;
+                    });
+
+                    BONES.forEach(([j1, j2]) => {
+                        const boneMesh = new THREE.Mesh(boneGeometry, boneMaterial);
+                        boneMesh.name = `${j1}-${j2}`;
+                        model.add(boneMesh);
+                        handMeshes[handedness].bones[`${j1}-${j2}`] = boneMesh;
+                    });
                 }
-            });
-            controller1.add(handModel1);
+            }
 
-            const handModel2 = new OculusHandModel(controller2, gltfLoader, (model) => {
-                const handMesh = model.getObjectByProperty('type', 'SkinnedMesh');
-                if (handMesh) {
-                    handMesh.visible = false;
-                    const skeletonHelper = new THREE.SkeletonHelper(handMesh);
-                    model.add(skeletonHelper);
+            function updateArticulatedHands() {
+                for (let i = 0; i < 2; i++) {
+                    const hand = renderer.xr.getHand(i);
+                    const handedness = i === 0 ? 'left' : 'right';
+                    const model = handModels[handedness];
+                    const meshes = handMeshes[handedness];
+
+                    if (model && meshes) {
+                        let anyJointVisible = false;
+                        if (hand.joints.size > 0) {
+                            anyJointVisible = true;
+                            // Update joint meshes
+                            hand.joints.forEach((jointSpace, jointName) => {
+                                const jointMesh = meshes.joints[jointName];
+                                if (jointMesh) {
+                                    jointMesh.position.copy(jointSpace.position);
+                                    jointMesh.quaternion.copy(jointSpace.quaternion);
+                                }
+                            });
+                            // Update bone meshes
+                            Object.entries(meshes.bones).forEach(([boneName, boneMesh]) => {
+                                const [j1, j2] = boneName.split('-');
+                                const joint1 = meshes.joints[j1];
+                                const joint2 = meshes.joints[j2];
+                                if (joint1 && joint2) {
+                                    orientCylinder(boneMesh, joint1.position, joint2.position);
+                                }
+                            });
+                        }
+                        model.visible = anyJointVisible;
+                    }
                 }
-            });
-            controller2.add(handModel2);
+            }
 
-            // Hand Pointers
-            const hand1 = renderer.xr.getHand(0);
-            scene.add(hand1);
-            const handPointer1 = new OculusHandPointerModel(hand1, controller1);
-            hand1.add(handPointer1);
-
-            const hand2 = renderer.xr.getHand(1);
-            scene.add(hand2);
-            const handPointer2 = new OculusHandPointerModel(hand2, controller2);
-            hand2.add(handPointer2);
+            setupArticulatedHands();
 
             let gripPressed = [false, false];
             let triggerPressed = [false, false];
@@ -1116,6 +1171,7 @@
                     mixer.update(delta);
                 }
                 handleControllerInput(delta);
+                updateArticulatedHands();
 
                 if (resizeRendererToDisplaySize(renderer)) {
                     const canvas = renderer.domElement;
