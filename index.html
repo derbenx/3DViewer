@@ -288,7 +288,7 @@
                 <hr>
             </div>
             <!-- AGENT_NOTE: Always update this version number when changing files. -->
-            <div id="version-info" style="font-size: 12px; color: #888; position: absolute; bottom: 10px;">Version: 2.6.5-debug.2</div>
+            <div id="version-info" style="font-size: 12px; color: #888; position: absolute; bottom: 10px;">Version: 2.6.5-debug.3</div>
         </div>
     </div>
     <div id="fps-counter" style="position: absolute; top: 10px; right: 10px; color: white; background: rgba(0,0,0,0.5); padding: 5px; font-family: sans-serif; display: none; z-index: 10;"></div>
@@ -606,16 +606,16 @@
                 ];
 
                 const jointGeometry = new THREE.SphereGeometry(0.006, 16, 8);
-                const jointMaterial = new THREE.MeshBasicMaterial({ color: 0x00aaff });
+                const jointMaterial = new THREE.MeshBasicMaterial({ color: 0x00aaff, transparent: true, opacity: 0.8 });
                 const boneGeometry = new THREE.CylinderGeometry(0.004, 0.004, 1, 8);
-                const boneMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff });
+                const boneMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.8 });
 
                 for (let i = 0; i < 2; i++) {
                     const hand = renderer.xr.getHand(i);
                     const handedness = i === 0 ? 'left' : 'right';
                     const model = new THREE.Group();
                     handModels[handedness] = model;
-                    scene.add(model);
+                    hand.add(model); // Add the articulated model to the XRHandSpace
 
                     const jointNames = [
                         'wrist', 'thumb-metacarpal', 'thumb-phalanx-proximal', 'thumb-phalanx-distal', 'thumb-tip',
@@ -649,27 +649,37 @@
                     const grip = (i === 0) ? controllerGrip1 : controllerGrip2;
                     const meshes = handMeshes[handedness];
 
-                    if (model && grip && meshes) {
+                    if (grip && model && meshes) {
+                        // A hand is considered tracked if it has active joints.
                         const hasJoints = hand.joints && Object.keys(hand.joints).length > 0;
+
+                        // Show our articulated model if joints are tracked, otherwise hide it.
                         model.visible = hasJoints;
+                        // Hide the default controller model if joints are tracked, otherwise show it.
                         grip.visible = !hasJoints;
 
+                        // If the hand is being tracked, update the positions of our meshes.
                         if (hasJoints) {
-                            Object.values(hand.joints).forEach((jointSpace) => {
-                                const jointMesh = meshes.joints[jointSpace.jointName];
+                            // The `joint` objects in `hand.joints` are XRJointSpaces.
+                            // Their pose is already relative to the hand's space, so we can
+                            // just copy their position and orientation directly to our meshes.
+                            for (const joint of Object.values(hand.joints)) {
+                                const jointMesh = meshes.joints[joint.jointName];
                                 if (jointMesh) {
-                                    jointMesh.position.copy(jointSpace.position);
-                                    jointMesh.quaternion.copy(jointSpace.quaternion);
+                                    jointMesh.position.copy(joint.position);
+                                    jointMesh.quaternion.copy(joint.quaternion);
                                 }
-                            });
-                            Object.entries(meshes.bones).forEach(([boneName, boneMesh]) => {
+                            }
+
+                            // Update the bone cylinders to connect the joints.
+                            for (const [boneName, boneMesh] of Object.entries(meshes.bones)) {
                                 const [j1, j2] = boneName.split('-');
                                 const joint1 = meshes.joints[j1];
                                 const joint2 = meshes.joints[j2];
                                 if (joint1 && joint2) {
                                     orientCylinder(boneMesh, joint1.position, joint2.position);
                                 }
-                            });
+                            }
                         }
                     }
                 }
@@ -945,7 +955,7 @@
             }
 
             const browseButton = document.getElementById('browse-button');
-            const fallbackInput = document.getElementById('file-input-fallback');
+            // const fallbackInput = document.getElementById('file-input-fallback');
 
             async function handleFile(file) {
                 const url = URL.createObjectURL(file);
@@ -982,18 +992,18 @@
                             console.error(err);
                         }
                     }
-                } else {
-                    fallbackInput.click();
-                }
+                } // else {
+                  //   fallbackInput.click();
+                // }
             });
 
-            fallbackInput.addEventListener('change', (event) => {
-                const file = event.target.files[0];
-                if (file) {
-                    handleFile(file);
-                }
-                event.target.value = ''; // Reset fallback input
-            });
+            // fallbackInput.addEventListener('change', (event) => {
+            //     const file = event.target.files[0];
+            //     if (file) {
+            //         handleFile(file);
+            //     }
+            //     event.target.value = ''; // Reset fallback input
+            // });
 
             const browseImageButton = document.getElementById('browse-image-button');
             // const imageFallbackInput = document.getElementById('image-input-fallback');

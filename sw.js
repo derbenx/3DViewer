@@ -69,9 +69,10 @@ self.addEventListener('activate', event => {
 self.addEventListener('fetch', event => {
     const url = new URL(event.request.url);
 
-    // Don't cache 3d models or the PHP script.
-    if (url.pathname.startsWith('/3d/') || url.pathname.endsWith('get_models.php')) {
+    // Don't cache 3d models, any PHP scripts, or non-GET requests.
+    if (event.request.method !== 'GET' || url.pathname.startsWith('/3d/') || url.pathname.endsWith('.php')) {
         // Go to network only for these requests.
+        // By not calling event.respondWith(), we let the browser handle it as a normal network request.
         return;
     }
 
