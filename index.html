@@ -288,7 +288,7 @@
                 <hr>
             </div>
             <!-- AGENT_NOTE: Always update this version number when changing files. -->
-            <div id="version-info" style="font-size: 12px; color: #888; position: absolute; bottom: 10px;">Version: 2.6.4</div>
+            <div id="version-info" style="font-size: 12px; color: #888; position: absolute; bottom: 10px;">Version: 2.6.5-debug.2</div>
         </div>
     </div>
     <div id="fps-counter" style="position: absolute; top: 10px; right: 10px; color: white; background: rgba(0,0,0,0.5); padding: 5px; font-family: sans-serif; display: none; z-index: 10;"></div>
@@ -469,7 +469,7 @@
             let originalModelInfo = null;
             renderer.xr.addEventListener('sessionstart', async () => {
                 const session = renderer.xr.getSession();
-                console.log('XR session started. Mode:', session.environmentBlendMode);
+                logToServer({ event: 'sessionstart', mode: session.environmentBlendMode });
 
                 if (session.environmentBlendMode === 'additive' || session.environmentBlendMode === 'alpha-blend') {
                     scene.background = null;
@@ -546,11 +546,22 @@
 
             const scene = new THREE.Scene();
 
-            const gltfLoader = new GLTFLoader();
-            const fbxLoader = new FBXLoader();
-            const objLoader = new OBJLoader();
-            const stlLoader = new STLLoader();
-            const textureLoader = new THREE.TextureLoader();
+            function logToServer(data) {
+                const timestamp = new Date().toISOString();
+                const logEntry = { timestamp, data };
+
+                fetch('log_debug.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(logEntry, (key, value) => {
+                        // Basic circular reference handler
+                        if (typeof value === 'object' && value !== null) {
+                            if (key === 'target' || key === 'source') return '[removed]';
+                        }
+                        return value;
+                    }, 2)
+                }).catch(error => console.error('Logging failed:', error));
+            }
 
             // VR Controllers Setup
             const controller1 = renderer.xr.getController(0);
@@ -561,16 +572,17 @@
             const controllerModelFactory = new XRControllerModelFactory();
 
             const controllerGrip1 = renderer.xr.getControllerGrip(0);
+            controllerGrip1.add(controllerModelFactory.createControllerModel(controllerGrip1));
             scene.add(controllerGrip1);
 
             const controllerGrip2 = renderer.xr.getControllerGrip(1);
+            controllerGrip2.add(controllerModelFactory.createControllerModel(controllerGrip2));
             scene.add(controllerGrip2);
 
             // Articulated Hand Models
             const handModels = { left: null, right: null };
             const handMeshes = { left: { joints: {}, bones: {} }, right: { joints: {}, bones: {} } };
 
-            // Helper to position and orient a cylinder between two points
             function orientCylinder(cylinder, startPoint, endPoint) {
                 const direction = new THREE.Vector3().subVectors(endPoint, startPoint);
                 const orientation = new THREE.Matrix4();
@@ -584,6 +596,7 @@
             }
 
             function setupArticulatedHands() {
+                logToServer({ event: 'setupArticulatedHands' });
                 const BONES = [
                     ['wrist', 'thumb-metacarpal'], ['thumb-metacarpal', 'thumb-phalanx-proximal'], ['thumb-phalanx-proximal', 'thumb-phalanx-distal'], ['thumb-phalanx-distal', 'thumb-tip'],
                     ['wrist', 'index-finger-metacarpal'], ['index-finger-metacarpal', 'index-finger-phalanx-proximal'], ['index-finger-phalanx-proximal', 'index-finger-phalanx-intermediate'], ['index-finger-phalanx-intermediate', 'index-finger-phalanx-distal'], ['index-finger-phalanx-distal', 'index-finger-tip'],
@@ -593,9 +606,9 @@
                 ];
 
                 const jointGeometry = new THREE.SphereGeometry(0.006, 16, 8);
-                const jointMaterial = new THREE.MeshStandardMaterial({ color: 0x00aaff, roughness: 0.2, metalness: 0.5 });
+                const jointMaterial = new THREE.MeshBasicMaterial({ color: 0x00aaff });
                 const boneGeometry = new THREE.CylinderGeometry(0.004, 0.004, 1, 8);
-                const boneMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.5, metalness: 0.2 });
+                const boneMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff });
 
                 for (let i = 0; i < 2; i++) {
                     const hand = renderer.xr.getHand(i);
@@ -604,7 +617,15 @@
                     handModels[handedness] = model;
                     scene.add(model);
 
-                    Object.entries(hand.joints).forEach(([jointName, joint]) => {
+                    const jointNames = [
+                        'wrist', 'thumb-metacarpal', 'thumb-phalanx-proximal', 'thumb-phalanx-distal', 'thumb-tip',
+                        'index-finger-metacarpal', 'index-finger-phalanx-proximal', 'index-finger-phalanx-intermediate', 'index-finger-phalanx-distal', 'index-finger-tip',
+                        'middle-finger-metacarpal', 'middle-finger-phalanx-proximal', 'middle-finger-phalanx-intermediate', 'middle-finger-phalanx-distal', 'middle-finger-tip',
+                        'ring-finger-metacarpal', 'ring-finger-phalanx-proximal', 'ring-finger-phalanx-intermediate', 'ring-finger-phalanx-distal', 'ring-finger-tip',
+                        'pinky-finger-metacarpal', 'pinky-finger-phalanx-proximal', 'pinky-finger-phalanx-intermediate', 'pinky-finger-phalanx-distal', 'pinky-finger-tip'
+                    ];
+
+                    jointNames.forEach(jointName => {
                         const jointMesh = new THREE.Mesh(jointGeometry, jointMaterial);
                         jointMesh.name = jointName;
                         model.add(jointMesh);
@@ -625,21 +646,22 @@
                     const hand = renderer.xr.getHand(i);
                     const handedness = i === 0 ? 'left' : 'right';
                     const model = handModels[handedness];
+                    const grip = (i === 0) ? controllerGrip1 : controllerGrip2;
                     const meshes = handMeshes[handedness];
 
-                    if (model && meshes) {
-                        let anyJointVisible = false;
-                        if (Object.keys(hand.joints).length > 0) {
-                            anyJointVisible = true;
-                            // Update joint meshes
-                            Object.entries(hand.joints).forEach(([jointName, jointSpace]) => {
-                                const jointMesh = meshes.joints[jointName];
+                    if (model && grip && meshes) {
+                        const hasJoints = hand.joints && Object.keys(hand.joints).length > 0;
+                        model.visible = hasJoints;
+                        grip.visible = !hasJoints;
+
+                        if (hasJoints) {
+                            Object.values(hand.joints).forEach((jointSpace) => {
+                                const jointMesh = meshes.joints[jointSpace.jointName];
                                 if (jointMesh) {
                                     jointMesh.position.copy(jointSpace.position);
                                     jointMesh.quaternion.copy(jointSpace.quaternion);
                                 }
                             });
-                            // Update bone meshes
                             Object.entries(meshes.bones).forEach(([boneName, boneMesh]) => {
                                 const [j1, j2] = boneName.split('-');
                                 const joint1 = meshes.joints[j1];
@@ -649,7 +671,6 @@
                                 }
                             });
                         }
-                        model.visible = anyJointVisible;
                     }
                 }
             }
@@ -662,11 +683,8 @@
             let animationPauseButtonPressed = [false, false];
 
             controller1.addEventListener('connected', function ( event ) {
-                console.log('Controller 0 Connected.');
+                logToServer({ event: 'controllerConnected', controller: 0, data: { handedness: event.data.handedness, targetRayMode: event.data.targetRayMode, hasHand: !!event.data.hand } });
                 this.gamepad = event.data.gamepad;
-                if (!event.data.hand) {
-                    controllerGrip1.add(controllerModelFactory.createControllerModel(controllerGrip1));
-                }
             } );
             controller1.addEventListener('selectstart', () => { triggerPressed[0] = true; });
             controller1.addEventListener('selectend', () => { triggerPressed[0] = false; });
@@ -674,11 +692,8 @@
             controller1.addEventListener('squeezeend', () => { gripPressed[0] = false; });
 
             controller2.addEventListener('connected', function ( event ) {
-                console.log('Controller 1 Connected.');
+                logToServer({ event: 'controllerConnected', controller: 1, data: { handedness: event.data.handedness, targetRayMode: event.data.targetRayMode, hasHand: !!event.data.hand } });
                 this.gamepad = event.data.gamepad;
-                if (!event.data.hand) {
-                    controllerGrip2.add(controllerModelFactory.createControllerModel(controllerGrip2));
-                }
             } );
             controller2.addEventListener('selectstart', () => { triggerPressed[1] = true; });
             controller2.addEventListener('selectend', () => { triggerPressed[1] = false; });
@@ -811,6 +826,12 @@
 
             updateLightSource(); // Initial light setup
 
+            const gltfLoader = new GLTFLoader();
+            const fbxLoader = new FBXLoader();
+            const objLoader = new OBJLoader();
+            const stlLoader = new STLLoader();
+            const textureLoader = new THREE.TextureLoader();
+
             function loadResource(url, onLoadedCallback, originalFilename = null) {
                 const filename = originalFilename || url.split('/').pop();
                 const extension = filename.split('.').pop().toLowerCase();
@@ -924,7 +945,7 @@
             }
 
             const browseButton = document.getElementById('browse-button');
-            // const fallbackInput = document.getElementById('file-input-fallback');
+            const fallbackInput = document.getElementById('file-input-fallback');
 
             async function handleFile(file) {
                 const url = URL.createObjectURL(file);
@@ -961,18 +982,18 @@
                             console.error(err);
                         }
                     }
-                } // else {
-                //     fallbackInput.click();
-                // }
+                } else {
+                    fallbackInput.click();
+                }
             });
 
-            // fallbackInput.addEventListener('change', (event) => {
-            //     const file = event.target.files[0];
-            //     if (file) {
-            //         handleFile(file);
-            //     }
-            //     event.target.value = ''; // Reset fallback input
-            // });
+            fallbackInput.addEventListener('change', (event) => {
+                const file = event.target.files[0];
+                if (file) {
+                    handleFile(file);
+                }
+                event.target.value = ''; // Reset fallback input
+            });
 
             const browseImageButton = document.getElementById('browse-image-button');
             // const imageFallbackInput = document.getElementById('image-input-fallback');
