@@ -200,9 +200,24 @@
         .custom-select-option.selected {
             background-color: #666;
         }
+
+        #conversion-message {
+            display: none;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            z-index: 100;
+            font-size: 18px;
+        }
     </style>
 </head>
 <body>
+    <div id="conversion-message">Converting model, please wait...</div>
     <div id="side-panel" class="visible">
         <button id="panel-toggle-button">☰</button>
         <div id="panel-content">
@@ -297,7 +312,10 @@
         {
             "imports": {
                 "three": "./js/three/build/three.module.js",
-                "three/addons/": "./js/three/examples/jsm/"
+                "three/addons/": "./js/three/examples/jsm/",
+                "@gltf-transform/core": "https://esm.sh/@gltf-transform/core",
+                "@gltf-transform/extensions": "https://esm.sh/@gltf-transform/extensions",
+                "@gltf-transform/functions": "https://esm.sh/@gltf-transform/functions"
             }
         }
     </script>
@@ -313,6 +331,9 @@
         import { STLLoader } from 'three/addons/loaders/STLLoader.js';
         import { ColladaLoader } from 'three/addons/loaders/ColladaLoader.js';
         import { VRMLLoader } from 'three/addons/loaders/VRMLLoader.js';
+        import { WebIO } from '@gltf-transform/core';
+        import { KHRONOS_EXTENSIONS } from '@gltf-transform/extensions';
+        import { metalRough } from '@gltf-transform/functions';
 
         function main() {
             let mixer;
@@ -735,17 +756,25 @@
                     } else {
                         let object;
                         let animations = [];
-                        if (result.scene) { // For GLTF
-                            object = result.scene;
-                            animations = result.animations;
-                        } else if (result instanceof THREE.BufferGeometry) { // For STL
-                            const material = new THREE.MeshStandardMaterial({color: 0xAAAAAA, metalness: 0.1, roughness: 0.75});
-                            object = new THREE.Mesh(result, material);
-                        } else { // For FBX, OBJ
-                            object = result;
-                            if (result.animations && result.animations.length > 0) {
-                                animations = result.animations;
+                        switch (extension) {
+                            case 'gltf':
+                            case 'glb':
+                            case 'dae': // Collada
+                                object = result.scene;
+                                animations = result.animations || [];
+                                break;
+                            case 'stl': {
+                                const material = new THREE.MeshStandardMaterial({color: 0xAAAAAA, metalness: 0.1, roughness: 0.75});
+                                object = new THREE.Mesh(result, material);
+                                object.rotation.set(-Math.PI / 2, 0, 0); // Correct for Z-up vs Y-up coordinate systems
+                                break;
                             }
+                            case 'fbx':
+                            case 'obj':
+                            case 'wrl': // VRML
+                                object = result;
+                                animations = result.animations || [];
+                                break;
                         }
                         setModel(object, animations);
                     }
@@ -767,8 +796,28 @@
                 switch (extension) {
                     case 'gltf':
                     case 'glb':
-                        loader = gltfLoader;
-                        break;
+                        (async () => {
+                            const conversionMessage = document.getElementById('conversion-message');
+                            try {
+                                conversionMessage.style.display = 'block';
+                                const io = new WebIO().registerExtensions(KHRONOS_EXTENSIONS);
+                                // url can be a string or an ArrayBuffer
+                                const document = await (url instanceof ArrayBuffer ? io.readBinary(new Uint8Array(url)) : io.read(url));
+                                await document.transform(metalRough());
+                                const glb = await io.writeBinary(document);
+                                conversionMessage.style.display = 'none';
+
+                                gltfLoader.parse(glb.buffer, '', (gltf) => {
+                                    onLoad(gltf);
+                                }, onError);
+                            } catch (e) {
+                                conversionMessage.style.display = 'none';
+                                console.error('Error during glTF transformation:', e);
+                                alert(`Failed to convert glTF model: ${e.message}. See console for details.`);
+                                if (onLoadedCallback) onLoadedCallback();
+                            }
+                        })();
+                        return; // Don't use the generic loader.load() at the end
                     case 'fbx':
                         loader = fbxLoader;
                         break;
@@ -843,8 +892,14 @@
             // const fallbackInput = document.getElementById('file-input-fallback');
 
             async function handleFile(file) {
-                const url = URL.createObjectURL(file);
-                loadResource(url, () => URL.revokeObjectURL(url), file.name);
+                const extension = file.name.split('.').pop().toLowerCase();
+                if (extension === 'gltf' || extension === 'glb') {
+                    const buffer = await file.arrayBuffer();
+                    loadResource(buffer, () => {}, file.name);
+                } else {
+                    const url = URL.createObjectURL(file);
+                    loadResource(url, () => URL.revokeObjectURL(url), file.name);
+                }
             }
 
             browseButton.addEventListener('click', async () => {
