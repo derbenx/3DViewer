@@ -225,6 +225,7 @@
                 <button id="browse-button" style="flex-grow: 1; padding: 10px; background-color: #444; color: white; border: 1px solid #555; cursor: pointer; font-size: 14px;">360 or Model</button>
                 <button id="browse-image-button" style="flex-grow: 1; padding: 10px; background-color: #444; color: white; border: 1px solid #555; cursor: pointer; font-size: 14px;">Flat Image</button>
                 <button id="clear-button" style="padding: 10px; background-color: #666; color: white; border: 1px solid #777; cursor: pointer; font-size: 14px;">Clear</button>
+                <button id="test-model-button" style="padding: 10px; background-color: #444; color: white; border: 1px solid #555; cursor: pointer; font-size: 14px;">Test Model</button>
             </div>
             <!-- <input type="file" id="file-input-fallback" accept=".gltf,.glb,.fbx,.obj,.stl,.jpg,.jpeg,.png" style="display: none;" /> -->
             <!-- <input type="file" id="image-input-fallback" accept=".jpg,.jpeg,.png" style="display: none;" /> -->
@@ -245,6 +246,10 @@
                         <div>
                             <input type="checkbox" id="three-point-lighting-toggle">
                             <label for="three-point-lighting-toggle" style="font-size: 14px;">Enable 3-Point Lighting</label>
+                        </div>
+                        <div>
+                            <input type="checkbox" id="two-sided-toggle">
+                            <label for="two-sided-toggle" style="font-size: 14px;">Render Two-Sided</label>
                         </div>
                         <div id="three-point-light-controls" style="display: none;">
                              <div style="display: flex; align-items: center; gap: 10px;">
@@ -365,8 +370,28 @@
                 lightIntensity: JSON.parse(localStorage.getItem('settings.lightIntensity')) ?? 1.0,
                 lightType: localStorage.getItem('settings.lightType') ?? 'Directional',
                 threePointLighting: JSON.parse(localStorage.getItem('settings.threePointLighting')) ?? false,
-                threePointLightIntensity: JSON.parse(localStorage.getItem('settings.threePointLightIntensity')) ?? 1.0
+                threePointLightIntensity: JSON.parse(localStorage.getItem('settings.threePointLightIntensity')) ?? 1.0,
+                twoSided: JSON.parse(localStorage.getItem('settings.twoSided')) ?? false
             };
+
+            function updateTwoSided() {
+                const model = scene.getObjectByName('user_model');
+                if (model) {
+                    model.traverse((child) => {
+                        if (child.isMesh && child.material) {
+                            child.material.side = settings.twoSided ? THREE.DoubleSide : THREE.FrontSide;
+                        }
+                    });
+                }
+            }
+
+            const twoSidedToggle = document.getElementById('two-sided-toggle');
+            twoSidedToggle.checked = settings.twoSided;
+            twoSidedToggle.addEventListener('change', (event) => {
+                settings.twoSided = event.target.checked;
+                localStorage.setItem('settings.twoSided', settings.twoSided);
+                updateTwoSided();
+            });
 
             const antialiasToggle = document.getElementById('antialias-toggle');
             antialiasToggle.checked = settings.antialias;
@@ -486,6 +511,12 @@
             const clearButton = document.getElementById('clear-button');
             clearButton.addEventListener('click', () => {
                 location.reload();
+            });
+
+            const testModelButton = document.getElementById('test-model-button');
+            testModelButton.addEventListener('click', () => {
+                const url = 'https://github.com/derbenx/3DViewer/raw/main/stretch.glb';
+                loadResource(url, () => {}, 'stretch.glb');
             });
             // --- End Settings ---
 
@@ -834,7 +865,14 @@
                                     await document.transform(metalRough());
                                     const glb = await io.writeBinary(document);
                                     conversionMessage.style.display = 'none';
-                                    gltfLoader.parse(glb.buffer, '', (gltf) => onLoad(gltf), onError);
+
+                                    const blob = new Blob([glb], { type: 'model/gltf-binary' });
+                                    const blobURL = URL.createObjectURL(blob);
+
+                                    gltfLoader.load(blobURL, (gltf) => {
+                                        onLoad(gltf);
+                                        URL.revokeObjectURL(blobURL);
+                                    }, undefined, onError);
                                 } else {
                                     // if it's a buffer, we need to parse it, otherwise load from url
                                     if (url instanceof ArrayBuffer) {
@@ -919,6 +957,8 @@
                     const action = mixer.clipAction(animations[0]);
                     action.play();
                 }
+
+                updateTwoSided();
             }
 
             const browseButton = document.getElementById('browse-button');
