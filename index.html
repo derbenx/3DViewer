@@ -288,7 +288,7 @@
                 <hr>
             </div>
             <!-- AGENT_NOTE: Always update this version number when changing files. -->
-            <div id="version-info" style="font-size: 12px; color: #888; position: absolute; bottom: 10px;">Version: 2.6.3</div>
+            <div id="version-info" style="font-size: 12px; color: #888; position: absolute; bottom: 10px;">Version: 2.6.4</div>
         </div>
     </div>
     <div id="fps-counter" style="position: absolute; top: 10px; right: 10px; color: white; background: rgba(0,0,0,0.5); padding: 5px; font-family: sans-serif; display: none; z-index: 10;"></div>
@@ -311,6 +311,8 @@
         import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
         import { OBJLoader } from 'three/addons/loaders/OBJLoader.js';
         import { STLLoader } from 'three/addons/loaders/STLLoader.js';
+        import { ColladaLoader } from 'three/addons/loaders/ColladaLoader.js';
+        import { VRMLLoader } from 'three/addons/loaders/VRMLLoader.js';
 
         function main() {
             let mixer;
@@ -715,6 +717,8 @@
             const fbxLoader = new FBXLoader();
             const objLoader = new OBJLoader();
             const stlLoader = new STLLoader();
+            const colladaLoader = new ColladaLoader();
+            const vrmlLoader = new VRMLLoader();
             const textureLoader = new THREE.TextureLoader();
 
             function loadResource(url, onLoadedCallback, originalFilename = null) {
@@ -773,6 +777,12 @@
                         break;
                     case 'stl':
                         loader = stlLoader;
+                        break;
+                    case 'dae':
+                        loader = colladaLoader;
+                        break;
+                    case 'wrl':
+                        loader = vrmlLoader;
                         break;
                     default:
                         alert(`Unsupported file type: .${extension}`);
@@ -850,6 +860,8 @@
                                         'model/x-fbx': ['.fbx'],
                                         'model/obj': ['.obj'],
                                         'model/stl': ['.stl'],
+                                        'model/x-collada': ['.dae'],
+                                        'model/vrml': ['.wrl'],
                                         'image/jpeg': ['.jpg', '.jpeg'],
                                         'image/png': ['.png'],
                                     }
