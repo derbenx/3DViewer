@@ -574,6 +574,8 @@ import { HandInput } from './js/HandInput.js';
                 this.gamepad = event.data.gamepad;
                 // Check if this input source has hand tracking
                 if (event.data.hand) {
+                    // Clear any default model that might have been added
+                    this.clear();
                     controllerGrip1.visible = false;
                     leftHand = new HandInput();
                     scene.add(leftHand.handModel);
@@ -599,6 +601,8 @@ import { HandInput } from './js/HandInput.js';
                 this.gamepad = event.data.gamepad;
                 // Check if this input source has hand tracking
                 if (event.data.hand) {
+                    // Clear any default model that might have been added
+                    this.clear();
                     controllerGrip2.visible = false;
                     rightHand = new HandInput();
                     scene.add(rightHand.handModel);
