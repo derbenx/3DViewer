@@ -311,9 +311,11 @@
         import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
         import { OBJLoader } from 'three/addons/loaders/OBJLoader.js';
         import { STLLoader } from 'three/addons/loaders/STLLoader.js';
+import { HandInput } from './js/HandInput.js';
 
         function main() {
             let mixer;
+    let leftHand, rightHand;
             // --- Settings ---
             const settings = {
                 antialias: JSON.parse(localStorage.getItem('settings.antialias')) ?? true,
@@ -570,7 +572,23 @@
             controller1.addEventListener('connected', function ( event ) {
                 console.log('Controller 0 Connected.');
                 this.gamepad = event.data.gamepad;
+                // Check if this input source has hand tracking
+                if (event.data.hand) {
+                    controllerGrip1.visible = false;
+                    leftHand = new HandInput();
+                    scene.add(leftHand.handModel);
+                }
             } );
+
+            controller1.addEventListener('disconnected', function () {
+                console.log('Controller 0 Disconnected.');
+                controllerGrip1.visible = true;
+                if (leftHand) {
+                    scene.remove(leftHand.handModel);
+                    leftHand = null;
+                }
+            });
+
             controller1.addEventListener('selectstart', () => { triggerPressed[0] = true; });
             controller1.addEventListener('selectend', () => { triggerPressed[0] = false; });
             controller1.addEventListener('squeezestart', () => { gripPressed[0] = true; });
@@ -579,7 +597,23 @@
             controller2.addEventListener('connected', function ( event ) {
                 console.log('Controller 1 Connected.');
                 this.gamepad = event.data.gamepad;
+                // Check if this input source has hand tracking
+                if (event.data.hand) {
+                    controllerGrip2.visible = false;
+                    rightHand = new HandInput();
+                    scene.add(rightHand.handModel);
+                }
             } );
+
+            controller2.addEventListener('disconnected', function () {
+                console.log('Controller 1 Disconnected.');
+                controllerGrip2.visible = true;
+                if (rightHand) {
+                    scene.remove(rightHand.handModel);
+                    rightHand = null;
+                }
+            });
+
             controller2.addEventListener('selectstart', () => { triggerPressed[1] = true; });
             controller2.addEventListener('selectend', () => { triggerPressed[1] = false; });
             controller2.addEventListener('squeezestart', () => { gripPressed[1] = true; });
@@ -1080,6 +1114,23 @@
                 if (mixer) {
                     mixer.update(delta);
                 }
+
+                // Update hand models if they exist
+                if (renderer.xr.isPresenting) {
+                    const session = renderer.xr.getSession();
+                    if (session && session.inputSources) {
+                        for (const source of session.inputSources) {
+                            if (source.hand) {
+                                if (source.handedness === 'left' && leftHand) {
+                                    leftHand.update(source.hand);
+                                } else if (source.handedness === 'right' && rightHand) {
+                                    rightHand.update(source.hand);
+                                }
+                            }
+                        }
+                    }
+                }
+
                 handleControllerInput(delta);
 
                 if (resizeRendererToDisplaySize(renderer)) {
