@@ -288,7 +288,7 @@
                 <hr>
             </div>
             <!-- AGENT_NOTE: Always update this version number when changing files. -->
-            <div id="version-info" style="font-size: 12px; color: #888; position: absolute; bottom: 10px;">Version: 2.6.6</div>
+            <div id="version-info" style="font-size: 12px; color: #888; position: absolute; bottom: 10px;">Version: 2.8.1</div>
         </div>
     </div>
     <div id="fps-counter" style="position: absolute; top: 10px; right: 10px; color: white; background: rgba(0,0,0,0.5); padding: 5px; font-family: sans-serif; display: none; z-index: 10;"></div>
@@ -311,11 +311,11 @@
         import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
         import { OBJLoader } from 'three/addons/loaders/OBJLoader.js';
         import { STLLoader } from 'three/addons/loaders/STLLoader.js';
-import { Hand } from './hands.js';
+        import { Hand } from './hands.js';
 
         function main() {
             let mixer;
-    let leftHand, rightHand;
+            let leftHand, rightHand;
             // --- Settings ---
             const settings = {
                 antialias: JSON.parse(localStorage.getItem('settings.antialias')) ?? true,
@@ -557,68 +557,69 @@ import { Hand } from './hands.js';
             const controllerModelFactory = new XRControllerModelFactory();
 
             const controllerGrip1 = renderer.xr.getControllerGrip(0);
-            controllerGrip1.add(controllerModelFactory.createControllerModel(controllerGrip1));
             scene.add(controllerGrip1);
-
             const controllerGrip2 = renderer.xr.getControllerGrip(1);
-            controllerGrip2.add(controllerModelFactory.createControllerModel(controllerGrip2));
             scene.add(controllerGrip2);
+
+            const hand1 = renderer.xr.getHand(0);
+            scene.add(hand1);
+            const hand2 = renderer.xr.getHand(1);
+            scene.add(hand2);
+
+
+            // --- Event Listeners ---
+            controller1.addEventListener('connected', function ( event ) {
+                this.gamepad = event.data.gamepad;
+                const isHand = event.data.profiles.some(profile => profile.includes('hand'));
+                if (isHand) {
+                    console.log("Hand detected for controller 1. Using custom model.");
+                    leftHand = new Hand(hand1);
+                    hand1.add(leftHand.model);
+                } else {
+                    console.log("Controller detected for controller 1. Using factory model.");
+                    controllerGrip1.visible = true;
+                    controllerGrip1.add(controllerModelFactory.createControllerModel(controllerGrip1));
+                }
+            });
+
+            controller1.addEventListener('disconnected', function () {
+                console.log('Controller 1 disconnected.');
+                controllerGrip1.clear();
+                hand1.clear();
+                leftHand = null;
+            });
+
+            controller2.addEventListener('connected', function ( event ) {
+                this.gamepad = event.data.gamepad;
+                const isHand = event.data.profiles.some(profile => profile.includes('hand'));
+                if (isHand) {
+                    console.log("Hand detected for controller 2. Using custom model.");
+                    rightHand = new Hand(hand2);
+                    hand2.add(rightHand.model);
+                } else {
+                    console.log("Controller detected for controller 2. Using factory model.");
+                    controllerGrip2.visible = true;
+                    controllerGrip2.add(controllerModelFactory.createControllerModel(controllerGrip2));
+                }
+            });
+
+            controller2.addEventListener('disconnected', function () {
+                console.log('Controller 2 disconnected.');
+                controllerGrip2.clear();
+                hand2.clear();
+                rightHand = null;
+            });
+
 
             let gripPressed = [false, false];
             let triggerPressed = [false, false];
             let exitButtonPressed = [false, false];
             let animationPauseButtonPressed = [false, false];
 
-            controller1.addEventListener('connected', function ( event ) {
-                console.log('Controller 0 Connected.');
-                this.gamepad = event.data.gamepad;
-                // Check if this input source has hand tracking
-                if (event.data.hand) {
-                    // Clear any default model that might have been added
-                    this.clear();
-                    controllerGrip1.clear();
-                    controllerGrip1.visible = false;
-                    leftHand = new Hand();
-                    scene.add(leftHand.model);
-                }
-            } );
-
-            controller1.addEventListener('disconnected', function () {
-                console.log('Controller 0 Disconnected.');
-                controllerGrip1.visible = true;
-                if (leftHand) {
-                    scene.remove(leftHand.model);
-                    leftHand = null;
-                }
-            });
-
             controller1.addEventListener('selectstart', () => { triggerPressed[0] = true; });
             controller1.addEventListener('selectend', () => { triggerPressed[0] = false; });
             controller1.addEventListener('squeezestart', () => { gripPressed[0] = true; });
             controller1.addEventListener('squeezeend', () => { gripPressed[0] = false; });
-
-            controller2.addEventListener('connected', function ( event ) {
-                console.log('Controller 1 Connected.');
-                this.gamepad = event.data.gamepad;
-                // Check if this input source has hand tracking
-                if (event.data.hand) {
-                    // Clear any default model that might have been added
-                    this.clear();
-                    controllerGrip2.clear();
-                    controllerGrip2.visible = false;
-                    rightHand = new Hand();
-                    scene.add(rightHand.model);
-                }
-            } );
-
-            controller2.addEventListener('disconnected', function () {
-                console.log('Controller 1 Disconnected.');
-                controllerGrip2.visible = true;
-                if (rightHand) {
-                    scene.remove(rightHand.model);
-                    rightHand = null;
-                }
-            });
 
             controller2.addEventListener('selectstart', () => { triggerPressed[1] = true; });
             controller2.addEventListener('selectend', () => { triggerPressed[1] = false; });
@@ -1120,21 +1121,11 @@ import { Hand } from './hands.js';
                 if (mixer) {
                     mixer.update(delta);
                 }
-
-                // Update hand models if they exist
-                if (renderer.xr.isPresenting) {
-                    const session = renderer.xr.getSession();
-                    if (session && session.inputSources) {
-                        for (const source of session.inputSources) {
-                            if (source.hand) {
-                                if (source.handedness === 'left' && leftHand) {
-                                    leftHand.update(source.hand);
-                                } else if (source.handedness === 'right' && rightHand) {
-                                    rightHand.update(source.hand);
-                                }
-                            }
-                        }
-                    }
+                if (leftHand) {
+                    leftHand.update();
+                }
+                if (rightHand) {
+                    rightHand.update();
                 }
 
                 handleControllerInput(delta);

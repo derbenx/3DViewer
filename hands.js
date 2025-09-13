@@ -1,8 +1,8 @@
 import * as THREE from 'three';
 
 // --- Constants ---
-const BONE_RADIUS = 0.005;
 const JOINT_RADIUS = 0.008;
+const BONE_RADIUS = 0.005;
 
 const XR_STANDARD_JOINT_NAMES = [
   'wrist',
@@ -36,16 +36,13 @@ const BONE_CONNECTIONS = {
     "pinky-finger-phalanx-distal": ["pinky-finger-tip"],
 };
 
-
-// --- Main Hand Class ---
-
 export class Hand {
-    constructor() {
+    constructor(handObj) {
+        this.hand = handObj;
         this.model = new THREE.Group();
         this.joints = {}; // Map to store joint meshes
         this.bones = {}; // Map to store bone meshes
 
-        // Materials
         const jointMaterial = new THREE.MeshStandardMaterial({
             color: 0x00ffff, // Cyan
             roughness: 0.2,
@@ -57,10 +54,9 @@ export class Hand {
             metalness: 0.8
         });
 
-        // Geometries
-        const jointGeometry = new THREE.SphereGeometry(JOINT_RADIUS, 16, 16);
+        const jointGeometry = new THREE.SphereGeometry(JOINT_RADIUS, 10, 10);
+        const boneGeometry = new THREE.CylinderGeometry(BONE_RADIUS, BONE_RADIUS, 1, 8);
 
-        // Create a mesh for each joint
         for (const jointName of XR_STANDARD_JOINT_NAMES) {
             const jointMesh = new THREE.Mesh(jointGeometry, jointMaterial);
             jointMesh.name = jointName;
@@ -68,11 +64,9 @@ export class Hand {
             this.model.add(jointMesh);
         }
 
-        // Create a mesh for each bone
         for (const startJoint in BONE_CONNECTIONS) {
             for (const endJoint of BONE_CONNECTIONS[startJoint]) {
                 const boneName = `${startJoint}-${endJoint}`;
-                const boneGeometry = new THREE.CylinderGeometry(BONE_RADIUS, BONE_RADIUS, 1, 8);
                 const boneMesh = new THREE.Mesh(boneGeometry, boneMaterial);
                 boneMesh.name = boneName;
                 this.bones[boneName] = boneMesh;
@@ -81,49 +75,33 @@ export class Hand {
         }
     }
 
-    update(xrHand) {
-        // Hide all parts of the model initially
-        this.model.visible = false;
-
-        if (!xrHand) {
+    update() {
+        if (!this.hand || !this.hand.joints) {
             return;
         }
 
-        // Unhide the model if we have hand data
-        this.model.visible = true;
-
-        const tempMatrix = new THREE.Matrix4();
-
-        // Update and show joints that have data
-        for (const joint of xrHand.values()) {
+        for (const joint of Object.values(this.hand.joints)) {
             const jointMesh = this.joints[joint.jointName];
             if (jointMesh) {
-                tempMatrix.fromArray(joint.transformMatrix);
-                tempMatrix.decompose(jointMesh.position, jointMesh.quaternion, jointMesh.scale);
-                jointMesh.visible = true;
+                jointMesh.position.copy(joint.position);
+                jointMesh.quaternion.copy(joint.quaternion);
             }
         }
 
-        // Update and show bones for visible joints
         for (const startJoint in BONE_CONNECTIONS) {
             for (const endJoint of BONE_CONNECTIONS[startJoint]) {
-                const boneName = `${startJoint}-${endJoint}`;
-                const boneMesh = this.bones[boneName];
+                const boneMesh = this.bones[`${startJoint}-${endJoint}`];
                 const startMesh = this.joints[startJoint];
                 const endMesh = this.joints[endJoint];
 
-                if (boneMesh && startMesh && endMesh && startMesh.visible && endMesh.visible) {
+                if (boneMesh && startMesh && endMesh) {
                     const startPos = startMesh.position;
                     const endPos = endMesh.position;
 
                     const distance = startPos.distanceTo(endPos);
                     boneMesh.scale.y = distance;
-
                     boneMesh.position.copy(startPos).lerp(endPos, 0.5);
                     boneMesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), new THREE.Vector3().subVectors(endPos, startPos).normalize());
-                    boneMesh.visible = true;
-                } else if (boneMesh) {
-                    boneMesh.visible = false;
                 }
             }
         }
