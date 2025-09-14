@@ -1,5 +1,9 @@
 import * as THREE from 'three';
 
+// Constants for hand visualization
+const JOINT_RADIUS = 0.003;
+const BONE_RADIUS = 0.004;
+
 // Defines the names of the joints in the hand, in the order specified by the WebXR API
 const XR_HAND_JOINTS = [
   "wrist",
@@ -36,16 +40,12 @@ const BONE_CONNECTIONS = {
 
 /**
  * A class that creates and manages a 3D hand model for WebXR.
- * This class relies on the Three.js XRHandSpace object being updated externally.
  */
 export class Hand {
     constructor(handModel, handedness) {
-        this.handModel = handModel; // THREE.XRHandSpace
+        this.handModel = handModel;
         this.handedness = handedness;
-
-        // Use the joints from the hand model directly. These are Object3Ds
-        // that are updated by the WebXRManager.
-        this.joints = this.handModel.joints;
+        this.joints = {};
         this.bones = {};
 
         const jointMaterial = new THREE.MeshStandardMaterial({
@@ -59,62 +59,108 @@ export class Hand {
             roughness: 0.5
         });
 
-        // Add visible spheres to the existing joint Object3Ds for visualization
-        for (const joint of Object.values(this.joints)) {
-            const sphere = new THREE.Mesh(
-                new THREE.SphereGeometry(0.003, 10, 10),
+        // Create joint meshes
+        for (const jointName of XR_HAND_JOINTS) {
+            const joint = new THREE.Mesh(
+                new THREE.SphereGeometry(JOINT_RADIUS, 10, 10),
                 jointMaterial
             );
-            joint.add(sphere);
+            joint.name = jointName;
+            this.joints[jointName] = joint;
+            this.handModel.add(joint);
         }
 
-        // Create bone meshes and add them to the hand model group
-        for (const startJointName in BONE_CONNECTIONS) {
-            const endJointNames = BONE_CONNECTIONS[startJointName];
-            for (const endJointName of endJointNames) {
+        // Create bone meshes
+        for (const startJoint in BONE_CONNECTIONS) {
+            const endJoints = BONE_CONNECTIONS[startJoint];
+            for (const endJoint of endJoints) {
                 const bone = new THREE.Mesh(
-                    // The cylinder is oriented along the Y-axis.
-                    new THREE.CylinderGeometry(0.002, 0.002, 1, 12),
+                    new THREE.CylinderGeometry(BONE_RADIUS, BONE_RADIUS, 1, 12),
                     boneMaterial
                 );
-                const boneName = `${startJointName}-${endJointName}`;
+                const boneName = `${startJoint}-${endJoint}`;
                 bone.name = boneName;
                 this.bones[boneName] = bone;
                 this.handModel.add(bone);
             }
         }
+
+        this.handModel.visible = false;
     }
 
     /**
-     * Updates the positions of the hand's bones based on the current joint positions.
+     * Updates the positions of the hand's joints and bones based on the XRFrame data.
+     * @param {XRFrame} xrFrame - The current XR frame.
+     * @param {XRReferenceSpace} referenceSpace - The reference space for poses.
      */
-    update() {
-        this.handModel.visible = true;
+    update(xrFrame, referenceSpace) {
+        let handInputSource = null;
+        for (const source of xrFrame.session.inputSources) {
+            if (source.handedness === this.handedness && source.hand) {
+                handInputSource = source.hand;
+                break;
+            }
+        }
 
-        for (const boneName in this.bones) {
-            const boneMesh = this.bones[boneName];
-            const [startJointName, endJointName] = boneName.split('-');
+        if (handInputSource) {
+            this.handModel.visible = true;
 
-            const startJoint = this.joints[startJointName];
-            const endJoint = this.joints[endJointName];
+            // Update the visibility and pose of each joint
+            for (const jointName of XR_HAND_JOINTS) {
+                const jointMesh = this.joints[jointName];
+                if (!jointMesh) continue; // Should not happen, but good practice
 
-            if (startJoint && endJoint) {
-                const startPos = startJoint.position;
-                const endPos = endJoint.position;
-                const distance = startPos.distanceTo(endPos);
+                const xrJoint = handInputSource.get(jointName);
+                if (xrJoint) {
+                    const pose = xrFrame.getJointPose(xrJoint, referenceSpace);
+                    if (pose) {
+                        jointMesh.matrix.fromArray(pose.transform.matrix);
+                        jointMesh.matrixAutoUpdate = false;
+                        jointMesh.visible = true;
+                    } else {
+                        jointMesh.visible = false;
+                    }
+                } else {
+                    jointMesh.visible = false;
+                }
+            }
 
-                // Hide bone if joints are not being tracked or are in the same spot.
-                if (distance > 0.001) {
-                    boneMesh.scale.y = distance;
-                    boneMesh.position.lerpVectors(startPos, endPos, 0.5);
-                    boneMesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), endPos.clone().sub(startPos).normalize());
-                    boneMesh.visible = true;
+            // Update the visibility, scale, and orientation of each bone
+            for (const boneName in this.bones) {
+                const boneMesh = this.bones[boneName];
+                const [startJointName, endJointName] = boneName.split('-');
+
+                const startJoint = this.joints[startJointName];
+                const endJoint = this.joints[endJointName];
+
+                if (startJoint && endJoint && startJoint.visible && endJoint.visible) {
+                    const startPos = new THREE.Vector3();
+                    const endPos = new THREE.Vector3();
+
+                    startJoint.matrix.decompose(startPos, new THREE.Quaternion(), new THREE.Vector3());
+                    endJoint.matrix.decompose(endPos, new THREE.Quaternion(), new THREE.Vector3());
+
+                    const distance = startPos.distanceTo(endPos);
+
+                    if (distance > 0.0001) { // small threshold to avoid zero-scale issues
+                        boneMesh.scale.y = distance;
+                        boneMesh.position.lerpVectors(startPos, endPos, 0.5);
+
+                        // Correctly orient the cylinder
+                        const direction = endPos.clone().sub(startPos).normalize();
+                        const quaternion = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), direction);
+                        boneMesh.quaternion.copy(quaternion);
+
+                        boneMesh.visible = true;
+                    } else {
+                        boneMesh.visible = false;
+                    }
                 } else {
                     boneMesh.visible = false;
                 }
-            } else {
-                boneMesh.visible = false;
             }
+        } else {
+            this.handModel.visible = false;
         }
     }
 }
