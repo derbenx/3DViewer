@@ -288,7 +288,7 @@
                 <hr>
             </div>
             <!-- AGENT_NOTE: Always update this version number when changing files. -->
-            <div id="version-info" style="font-size: 12px; color: #888; position: absolute; bottom: 10px;">Version: 2.8.6</div>
+            <div id="version-info" style="font-size: 12px; color: #888; position: absolute; bottom: 10px;">Version: 2.8.7</div>
         </div>
     </div>
     <div id="fps-counter" style="position: absolute; top: 10px; right: 10px; color: white; background: rgba(0,0,0,0.5); padding: 5px; font-family: sans-serif; display: none; z-index: 10;"></div>
@@ -314,6 +314,34 @@
         import { Hand } from './hands.js';
 
         function main() {
+            async function logToServer(level, message, payload = null) {
+                const timestamp = new Date().toISOString();
+                let logString = `[${timestamp}] [${level.toUpperCase()}] ${message}`;
+
+                if (payload !== null) {
+                    const replacer = (key, value) => {
+                        if(value instanceof Map) {
+                            return Object.fromEntries(value.entries());
+                        } else {
+                            return value;
+                        }
+                    };
+                    logString += ` | Payload: ${JSON.stringify(payload, replacer, 2)}`;
+                }
+
+                try {
+                    await fetch('log_debug.php', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'text/plain',
+                        },
+                        body: logString,
+                    });
+                } catch (error) {
+                    console.error('Failed to log to server:', error);
+                }
+            }
+
             let mixer;
             let leftHand, rightHand;
             let frameCounter = 0;
@@ -571,21 +599,17 @@
 
             // --- Event Listeners ---
             controller1.addEventListener('connected', function ( event ) {
-                console.log("--- CONTROLLER 1 CONNECTED EVENT FIRED ---");
-                console.log("Controller 1 connected. Event data:", event.data);
-                console.log("Controller 1 profiles:", event.data.profiles);
-
+                logToServer('INFO', '--- CONTROLLER 1 CONNECTED EVENT FIRED ---', { profiles: event.data.profiles });
                 this.gamepad = event.data.gamepad;
                 const isHand = event.data.profiles.some(profile => profile.includes('hand'));
-
-                console.log("Is controller 1 a hand?", isHand);
+                logToServer('INFO', `Is controller 1 a hand? ${isHand}`);
 
                 if (isHand) {
-                    console.log("Hand detected for controller 1. Using custom model.");
+                    logToServer('INFO', "Hand detected for controller 1. Using custom model.");
                     leftHand = new Hand(hand1);
                     hand1.add(leftHand.model);
                 } else {
-                    console.log("Controller detected for controller 1. Using factory model.");
+                    logToServer('INFO', "Controller detected for controller 1. Using factory model.");
                     controllerGrip1.visible = true;
                     controllerGrip1.add(controllerModelFactory.createControllerModel(controllerGrip1));
                 }
@@ -599,21 +623,17 @@
             });
 
             controller2.addEventListener('connected', function ( event ) {
-                console.log("--- CONTROLLER 2 CONNECTED EVENT FIRED ---");
-                console.log("Controller 2 connected. Event data:", event.data);
-                console.log("Controller 2 profiles:", event.data.profiles);
-
+                logToServer('INFO', '--- CONTROLLER 2 CONNECTED EVENT FIRED ---', { profiles: event.data.profiles });
                 this.gamepad = event.data.gamepad;
                 const isHand = event.data.profiles.some(profile => profile.includes('hand'));
-
-                console.log("Is controller 2 a hand?", isHand);
+                logToServer('INFO', `Is controller 2 a hand? ${isHand}`);
 
                 if (isHand) {
-                    console.log("Hand detected for controller 2. Using custom model.");
+                    logToServer('INFO', "Hand detected for controller 2. Using custom model.");
                     rightHand = new Hand(hand2);
                     hand2.add(rightHand.model);
                 } else {
-                    console.log("Controller detected for controller 2. Using factory model.");
+                    logToServer('INFO', "Controller detected for controller 2. Using factory model.");
                     controllerGrip2.visible = true;
                     controllerGrip2.add(controllerModelFactory.createControllerModel(controllerGrip2));
                 }
@@ -1141,16 +1161,12 @@
                 }
 
                 if (leftHand) {
-                    // Log the hand data periodically to the console for debugging
                     if (frameCounter % 60 === 0) {
-                        console.log('hand1 tracking data:', hand1);
-                        console.log('hand1 joints map:', hand1.joints);
+                        logToServer('DEBUG', 'Hand 1 joints map', hand1.joints);
                     }
-                    // Pass the live hand data from the renderer to the update function
                     leftHand.update(hand1);
                 }
                 if (rightHand) {
-                    // Pass the live hand data from the renderer to the update function
                     rightHand.update(hand2);
                 }
 
