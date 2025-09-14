@@ -134,7 +134,6 @@ export class Hand {
                     const startPos = new THREE.Vector3();
                     const endPos = new THREE.Vector3();
 
-                    // Decompose the world matrix of the joints to get their world positions
                     startJoint.matrix.decompose(startPos, new THREE.Quaternion(), new THREE.Vector3());
                     endJoint.matrix.decompose(endPos, new THREE.Quaternion(), new THREE.Vector3());
 
