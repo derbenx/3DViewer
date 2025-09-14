@@ -312,6 +312,12 @@
         let leftHand, rightHand;
 
         function main() {
+            const websocket = new WebSocket('ws://localhost:8080');
+
+            websocket.onopen = () => console.log('WebSocket connection established');
+            websocket.onclose = () => console.log('WebSocket connection closed');
+            websocket.onerror = (error) => console.error('WebSocket error:', error);
+
             let mixer;
             // --- Settings ---
             const settings = {
@@ -646,7 +652,7 @@
                 this.gamepad = inputSource.gamepad;
                 // Check if the input source has articulated hand tracking support
                 if (inputSource.hand) {
-                    leftHand = new Hand(hand1, 'left');
+                    leftHand = new Hand(hand1, 'left', websocket);
                 } else {
                     // If not, fall back to the default controller model
                     controllerGrip1.add(controllerModelFactory.createControllerModel(controllerGrip1));
@@ -677,7 +683,7 @@
                 this.gamepad = inputSource.gamepad;
                 // Check if the input source has articulated hand tracking support
                 if (inputSource.hand) {
-                    rightHand = new Hand(hand2, 'right');
+                    rightHand = new Hand(hand2, 'right', websocket);
                 } else {
                     // If not, fall back to the default controller model
                     controllerGrip2.add(controllerModelFactory.createControllerModel(controllerGrip2));

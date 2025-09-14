@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebXR Remote Debugger</title>
+    <style>
+        body { font-family: monospace; }
+        #data { white-space: pre-wrap; }
+    </style>
+</head>
+<body>
+    <h1>WebXR Remote Debugger</h1>
+    <p>Listening for data...</p>
+    <pre id="data"></pre>
+
+    <script>
+        const dataElement = document.getElementById('data');
+        const ws = new WebSocket('ws://localhost:8080');
+
+        ws.onopen = () => {
+            console.log('Connected to WebSocket server');
+            document.querySelector('p').textContent = 'Connected. Waiting for data...';
+        };
+
+        ws.onmessage = event => {
+            try {
+                const data = JSON.parse(event.data);
+                dataElement.textContent = JSON.stringify(data, null, 2);
+            } catch (error) {
+                console.error('Error parsing JSON:', error);
+                dataElement.textContent = `Error parsing data: ${event.data}`;
+            }
+        };
+
+        ws.onclose = () => {
+            console.log('Disconnected from WebSocket server');
+            document.querySelector('p').textContent = 'Disconnected from server.';
+        };
+
+        ws.onerror = error => {
+            console.error('WebSocket error:', error);
+            document.querySelector('p').textContent = 'Error connecting to server.';
+        };
+    </script>
+</body>
+</html>

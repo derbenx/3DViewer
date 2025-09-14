@@ -42,9 +42,10 @@ const BONE_CONNECTIONS = {
  * A class that creates and manages a 3D hand model for WebXR.
  */
 export class Hand {
-    constructor(handModel, handedness) {
+    constructor(handModel, handedness, websocket) {
         this.handModel = handModel;
         this.handedness = handedness;
+        this.websocket = websocket;
         this.joints = {};
         this.bones = {};
 
@@ -151,6 +152,27 @@ export class Hand {
             }
         } else {
             this.handModel.visible = false;
+        }
+
+        // Send data over websocket
+        if (this.websocket && this.websocket.readyState === WebSocket.OPEN) {
+            const handData = {
+                handedness: this.handedness,
+                joints: {}
+            };
+
+            for (const jointName in this.joints) {
+                const joint = this.joints[jointName];
+                if (joint.visible) {
+                    handData.joints[jointName] = {
+                        matrix: joint.matrix.toArray()
+                    };
+                }
+            }
+
+            if (Object.keys(handData.joints).length > 0) {
+                this.websocket.send(JSON.stringify(handData));
+            }
         }
     }
 }
