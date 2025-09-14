@@ -200,9 +200,24 @@
         .custom-select-option.selected {
             background-color: #666;
         }
+
+        #conversion-message {
+            display: none;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            z-index: 100;
+            font-size: 18px;
+        }
     </style>
 </head>
 <body>
+    <div id="conversion-message">Converting model, please wait...</div>
     <div id="side-panel" class="visible">
         <button id="panel-toggle-button">☰</button>
         <div id="panel-content">
@@ -228,6 +243,10 @@
                         <div>
                             <input type="checkbox" id="three-point-lighting-toggle">
                             <label for="three-point-lighting-toggle" style="font-size: 14px;">Enable 3-Point Lighting</label>
+                        </div>
+                        <div>
+                            <input type="checkbox" id="two-sided-toggle">
+                            <label for="two-sided-toggle" style="font-size: 14px;">Render Two-Sided</label>
                         </div>
                         <div id="three-point-light-controls" style="display: none;">
                              <div style="display: flex; align-items: center; gap: 10px;">
@@ -286,7 +305,7 @@
                 <hr>
             </div>
             <!-- AGENT_NOTE: Always update this version number when changing files. -->
-            <div id="version-info" style="font-size: 12px; color: #888; position: absolute; bottom: 10px;">Version: 2.8.12</div>
+            <div id="version-info" style="font-size: 12px; color: #888; position: absolute; bottom: 10px;">Version: 2.8.13</div>
         </div>
     </div>
     <div id="fps-counter" style="position: absolute; top: 10px; right: 10px; color: white; background: rgba(0,0,0,0.5); padding: 5px; font-family: sans-serif; display: none; z-index: 10;"></div>
@@ -295,7 +314,10 @@
         {
             "imports": {
                 "three": "./js/three/build/three.module.js",
-                "three/addons/": "./js/three/examples/jsm/"
+                "three/addons/": "./js/three/examples/jsm/",
+                "@gltf-transform/core": "https://esm.sh/@gltf-transform/core",
+                "@gltf-transform/extensions": "https://esm.sh/@gltf-transform/extensions",
+                "@gltf-transform/functions": "https://esm.sh/@gltf-transform/functions"
             }
         }
     </script>
@@ -308,8 +330,32 @@
         import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
         import { OBJLoader } from 'three/addons/loaders/OBJLoader.js';
         import { STLLoader } from 'three/addons/loaders/STLLoader.js';
+        import { ColladaLoader } from 'three/addons/loaders/ColladaLoader.js';
+        import { VRMLLoader } from 'three/addons/loaders/VRMLLoader.js';
+        import { WebIO } from '@gltf-transform/core';
+        import { KHRONOS_EXTENSIONS } from '@gltf-transform/extensions';
+        import { metalRough } from '@gltf-transform/functions';
 
         let leftHand, rightHand;
+        function modelNeedsConversion(buffer) {
+            const textDecoder = new TextDecoder();
+            let json;
+            try {
+                // Check for binary GLB header
+                if (textDecoder.decode(new Uint8Array(buffer, 0, 4)) === 'glTF') {
+                    const dataView = new DataView(buffer);
+                    const jsonChunkLength = dataView.getUint32(12, true);
+                    const jsonChunk = new Uint8Array(buffer, 20, jsonChunkLength);
+                    json = JSON.parse(textDecoder.decode(jsonChunk));
+                } else {
+                    json = JSON.parse(textDecoder.decode(buffer));
+                }
+                return json.extensionsUsed && json.extensionsUsed.includes('KHR_materials_pbrSpecularGlossiness');
+            } catch (e) {
+                console.error('Error checking for glTF extension:', e);
+                return false;
+            }
+        }
 
         function main() {
             let mixer;
@@ -321,9 +367,28 @@
                 lightIntensity: JSON.parse(localStorage.getItem('settings.lightIntensity')) ?? 1.0,
                 lightType: localStorage.getItem('settings.lightType') ?? 'Directional',
                 threePointLighting: JSON.parse(localStorage.getItem('settings.threePointLighting')) ?? false,
-                threePointLightIntensity: JSON.parse(localStorage.getItem('settings.threePointLightIntensity')) ?? 1.0
+                threePointLightIntensity: JSON.parse(localStorage.getItem('settings.threePointLightIntensity')) ?? 1.0,
+                twoSided: JSON.parse(localStorage.getItem('settings.twoSided')) ?? false
             };
 
+            function updateTwoSided() {
+                const model = scene.getObjectByName('user_model');
+                if (model) {
+                    model.traverse((child) => {
+                        if (child.isMesh && child.material) {
+                            child.material.side = settings.twoSided ? THREE.DoubleSide : THREE.FrontSide;
+                        }
+                    });
+                }
+            }
+
+            const twoSidedToggle = document.getElementById('two-sided-toggle');
+            twoSidedToggle.checked = settings.twoSided;
+            twoSidedToggle.addEventListener('change', (event) => {
+                settings.twoSided = event.target.checked;
+                localStorage.setItem('settings.twoSided', settings.twoSided);
+                updateTwoSided();
+            });
             const antialiasToggle = document.getElementById('antialias-toggle');
             antialiasToggle.checked = settings.antialias;
             antialiasToggle.addEventListener('change', (event) => {
@@ -839,6 +904,8 @@
             const fbxLoader = new FBXLoader();
             const objLoader = new OBJLoader();
             const stlLoader = new STLLoader();
+            const colladaLoader = new ColladaLoader();
+            const vrmlLoader = new VRMLLoader();
             const textureLoader = new THREE.TextureLoader();
 
             function loadResource(url, onLoadedCallback, originalFilename = null) {
@@ -855,17 +922,25 @@
                     } else {
                         let object;
                         let animations = [];
-                        if (result.scene) { // For GLTF
-                            object = result.scene;
-                            animations = result.animations;
-                        } else if (result instanceof THREE.BufferGeometry) { // For STL
-                            const material = new THREE.MeshStandardMaterial({color: 0xAAAAAA, metalness: 0.1, roughness: 0.75});
-                            object = new THREE.Mesh(result, material);
-                        } else { // For FBX, OBJ
-                            object = result;
-                            if (result.animations && result.animations.length > 0) {
-                                animations = result.animations;
+                        switch (extension) {
+                            case 'gltf':
+                            case 'glb':
+                            case 'dae': // Collada
+                                object = result.scene;
+                                animations = result.animations || [];
+                                break;
+                            case 'stl': {
+                                const material = new THREE.MeshStandardMaterial({color: 0xAAAAAA, metalness: 0.1, roughness: 0.75});
+                                object = new THREE.Mesh(result, material);
+                                object.rotation.set(-Math.PI / 2, 0, 0); // Correct for Z-up vs Y-up coordinate systems
+                                break;
                             }
+                            case 'fbx':
+                            case 'obj':
+                            case 'wrl': // VRML
+                                object = result;
+                                animations = result.animations || [];
+                                break;
                         }
                         setModel(object, animations);
                     }
@@ -887,8 +962,45 @@
                 switch (extension) {
                     case 'gltf':
                     case 'glb':
-                        loader = gltfLoader;
-                        break;
+                        (async () => {
+                            const conversionMessage = document.getElementById('conversion-message');
+                            try {
+                                let buffer;
+                                if (url instanceof ArrayBuffer) {
+                                    buffer = url;
+                                } else {
+                                    const response = await fetch(url);
+                                    buffer = await response.arrayBuffer();
+                                }
+
+                                if (modelNeedsConversion(buffer)) {
+                                    conversionMessage.style.display = 'block';
+                                    const io = new WebIO().registerExtensions(KHRONOS_EXTENSIONS);
+                                    const document = await io.readBinary(new Uint8Array(buffer));
+                                    await document.transform(metalRough());
+                                    const glb = await io.writeBinary(document);
+                                    conversionMessage.style.display = 'none';
+
+                                    // The transformed model is in a Uint8Array. Use parse() directly.
+                                    // This avoids issues with blob URLs and texture loading.
+                                    // GLTFLoader.parse expects an ArrayBuffer, so we pass the buffer property of the Uint8Array.
+                                    gltfLoader.parse(glb.buffer, '', onLoad, onError);
+                                } else {
+                                    // if it's a buffer, we need to parse it, otherwise load from url
+                                    if (url instanceof ArrayBuffer) {
+                                        gltfLoader.parse(url, '', (gltf) => onLoad(gltf), onError);
+                                    } else {
+                                        gltfLoader.load(url, onLoad, undefined, onError);
+                                    }
+                                }
+                            } catch (e) {
+                                conversionMessage.style.display = 'none';
+                                console.error('Error loading glTF model:', e);
+                                alert(`Failed to load glTF model: ${e.message}. See console for details.`);
+                                if (onLoadedCallback) onLoadedCallback();
+                            }
+                        })();
+                        return; // Don't use the generic loader.load() at the end
                     case 'fbx':
                         loader = fbxLoader;
                         break;
@@ -897,6 +1009,12 @@
                         break;
                     case 'stl':
                         loader = stlLoader;
+                        break;
+                    case 'dae':
+                        loader = colladaLoader;
+                        break;
+                    case 'wrl':
+                        loader = vrmlLoader;
                         break;
                     default:
                         alert(`Unsupported file type: .${extension}`);
@@ -951,13 +1069,20 @@
                     const action = mixer.clipAction(animations[0]);
                     action.play();
                 }
+                updateTwoSided();
             }
 
             const browseButton = document.getElementById('browse-button');
 
             async function handleFile(file) {
-                const url = URL.createObjectURL(file);
-                loadResource(url, () => URL.revokeObjectURL(url), file.name);
+                const extension = file.name.split('.').pop().toLowerCase();
+                if (extension === 'gltf' || extension === 'glb') {
+                    const buffer = await file.arrayBuffer();
+                    loadResource(buffer, () => {}, file.name);
+                } else {
+                    const url = URL.createObjectURL(file);
+                    loadResource(url, () => URL.revokeObjectURL(url), file.name);
+                }
             }
 
             browseButton.addEventListener('click', async () => {
