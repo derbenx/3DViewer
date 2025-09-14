@@ -138,13 +138,18 @@ export class Hand {
                     endJoint.matrix.decompose(endPos, new THREE.Quaternion(), new THREE.Vector3());
 
                     const distance = startPos.distanceTo(endPos);
-                    boneMesh.scale.y = distance;
 
-                    boneMesh.position.lerpVectors(startPos, endPos, 0.5);
-                    boneMesh.lookAt(endPos);
-                    boneMesh.rotateX(Math.PI / 2);
+                    if (distance > 0) {
+                        boneMesh.scale.y = distance;
 
-                    boneMesh.visible = true;
+                        boneMesh.position.lerpVectors(startPos, endPos, 0.5);
+                        boneMesh.lookAt(endPos);
+                        boneMesh.rotateX(Math.PI / 2);
+
+                        boneMesh.visible = true;
+                    } else {
+                        boneMesh.visible = false;
+                    }
                 } else {
                     boneMesh.visible = false;
                 }
