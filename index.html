@@ -308,10 +308,12 @@
         import { VRButton } from 'three/addons/webxr/VRButton.js';
         import { ARButton } from 'three/addons/webxr/ARButton.js';
         import { XRControllerModelFactory } from 'three/addons/webxr/XRControllerModelFactory.js';
-        import { XRHandModelFactory } from 'three/addons/webxr/XRHandModelFactory.js';
+        import { Hand } from './js/hand.js';
         import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
         import { OBJLoader } from 'three/addons/loaders/OBJLoader.js';
         import { STLLoader } from 'three/addons/loaders/STLLoader.js';
+
+        let leftHand, rightHand;
 
         function main() {
             let mixer;
@@ -549,38 +551,68 @@
 
             // --- VR Controllers Setup ---
             const controllerModelFactory = new XRControllerModelFactory();
-            const handModelFactory = new XRHandModelFactory();
 
             // Controller 1
             const controller1 = renderer.xr.getController(0);
-            controller1.addEventListener( 'connected', function ( event ) {
-                this.gamepad = event.data.gamepad;
-            } );
             scene.add(controller1);
 
             const controllerGrip1 = renderer.xr.getControllerGrip(0);
-            controllerGrip1.add( controllerModelFactory.createControllerModel( controllerGrip1 ) );
             scene.add(controllerGrip1);
 
             const hand1 = renderer.xr.getHand(0);
-            hand1.add( handModelFactory.createHandModel( hand1 ) );
             scene.add(hand1);
+
+            controller1.addEventListener('connected', function ( event ) {
+                this.gamepad = event.data.gamepad;
+                const isHand = event.data.profiles.some(profile => profile.includes('hand'));
+                if (isHand) {
+                    // Use our custom hand model
+                    leftHand = new Hand(hand1, 'left');
+                } else {
+                    // Use the default controller model
+                    controllerGrip1.add(controllerModelFactory.createControllerModel(controllerGrip1));
+                }
+            });
+
+            controller1.addEventListener('disconnected', function () {
+                if (leftHand) {
+                    leftHand = null;
+                }
+                // Clear any models
+                controllerGrip1.clear();
+                hand1.clear();
+            });
 
             // Controller 2
             const controller2 = renderer.xr.getController(1);
-            controller2.addEventListener( 'connected', function ( event ) {
-                this.gamepad = event.data.gamepad;
-            } );
             scene.add(controller2);
 
             const controllerGrip2 = renderer.xr.getControllerGrip(1);
-            controllerGrip2.add( controllerModelFactory.createControllerModel( controllerGrip2 ) );
             scene.add(controllerGrip2);
 
             const hand2 = renderer.xr.getHand(1);
-            hand2.add( handModelFactory.createHandModel( hand2 ) );
             scene.add(hand2);
 
+            controller2.addEventListener('connected', function ( event ) {
+                this.gamepad = event.data.gamepad;
+                const isHand = event.data.profiles.some(profile => profile.includes('hand'));
+                if (isHand) {
+                    // Use our custom hand model
+                    rightHand = new Hand(hand2, 'right');
+                } else {
+                    // Use the default controller model
+                    controllerGrip2.add(controllerModelFactory.createControllerModel(controllerGrip2));
+                }
+            });
+
+            controller2.addEventListener('disconnected', function () {
+                if (rightHand) {
+                    rightHand = null;
+                }
+                // Clear any models
+                controllerGrip2.clear();
+                hand2.clear();
+            });
             // --- End VR Controllers Setup ---
 
             let gripPressed = [false, false];
@@ -1079,7 +1111,12 @@
                 }
             }
 
-            function render(time) {
+            function render(time, frame) {
+                if (renderer.xr.isPresenting) {
+                    if (leftHand) leftHand.update();
+                    if (rightHand) rightHand.update();
+                }
+
                 if (settings.showFPS) {
                     fpsCounter.frames++;
                     if (time >= fpsCounter.lastTime + 1000) {
