@@ -466,8 +466,56 @@
             renderer.xr.setReferenceSpaceType('local');
 
             const webxrButtonsContainer = document.getElementById('webxr-buttons');
-            webxrButtonsContainer.appendChild(VRButton.createButton(renderer));
+
+            // AR Button can stay, but we create the VR Button manually to request hand tracking
             webxrButtonsContainer.appendChild(ARButton.createButton(renderer));
+
+            function updateButtonState(button, session) {
+                if (session) {
+                    button.textContent = 'Exit VR';
+                    session.addEventListener('end', () => {
+                        button.textContent = 'Enter VR';
+                    }, { once: true });
+                } else {
+                     button.textContent = 'Enter VR';
+                }
+            }
+
+            if ('xr' in navigator) {
+                const vrButton = document.createElement('button');
+                vrButton.id = 'VRButton'; // Keep ID for compatibility
+
+                navigator.xr.isSessionSupported('immersive-vr').then((supported) => {
+                    if (supported) {
+                        vrButton.style.display = '';
+                        vrButton.addEventListener('click', () => {
+                            const currentSession = renderer.xr.getSession();
+                            if (currentSession) {
+                                currentSession.end();
+                            } else {
+                                const sessionInit = {
+                                    optionalFeatures: ['local-floor', 'bounded-floor', 'hand-tracking']
+                                };
+                                navigator.xr.requestSession('immersive-vr', sessionInit).then((session) => {
+                                    renderer.xr.setSession(session);
+                                });
+                            }
+                        });
+                        webxrButtonsContainer.appendChild(vrButton);
+                    } else {
+                        // VR not supported, maybe show a message or just don't show the button
+                    }
+                });
+
+                // Update button text based on session status
+                renderer.xr.addEventListener('sessionstart', (event) => updateButtonState(vrButton, event.session));
+                renderer.xr.addEventListener('sessionend', () => updateButtonState(vrButton, null));
+
+                updateButtonState(vrButton, renderer.xr.getSession());
+
+            } else {
+                // WebXR not available
+            }
 
             let originalModelInfo = null;
             renderer.xr.addEventListener('sessionstart', async () => {
