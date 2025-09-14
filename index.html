@@ -211,8 +211,6 @@
                 <button id="browse-image-button" style="flex-grow: 1; padding: 10px; background-color: #444; color: white; border: 1px solid #555; cursor: pointer; font-size: 14px;">Flat Image</button>
                 <button id="clear-button" style="padding: 10px; background-color: #666; color: white; border: 1px solid #777; cursor: pointer; font-size: 14px;">Clear</button>
             </div>
-            <!-- <input type="file" id="file-input-fallback" accept=".gltf,.glb,.fbx,.obj,.stl,.jpg,.jpeg,.png" style="display: none;" /> -->
-            <!-- <input type="file" id="image-input-fallback" accept=".jpg,.jpeg,.png" style="display: none;" /> -->
             <div id="webxr-buttons"></div>
             <div id="main-controls-container">
                 <hr>
@@ -288,7 +286,7 @@
                 <hr>
             </div>
             <!-- AGENT_NOTE: Always update this version number when changing files. -->
-            <div id="version-info" style="font-size: 12px; color: #888; position: absolute; bottom: 10px;">Version: 2.8.11</div>
+            <div id="version-info" style="font-size: 12px; color: #888; position: absolute; bottom: 10px;">Version: 2.8.12</div>
         </div>
     </div>
     <div id="fps-counter" style="position: absolute; top: 10px; right: 10px; color: white; background: rgba(0,0,0,0.5); padding: 5px; font-family: sans-serif; display: none; z-index: 10;"></div>
@@ -305,8 +303,6 @@
         import * as THREE from 'three';
         import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
         import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-        import { VRButton } from 'three/addons/webxr/VRButton.js';
-        import { ARButton } from 'three/addons/webxr/ARButton.js';
         import { XRControllerModelFactory } from 'three/addons/webxr/XRControllerModelFactory.js';
         import { Hand } from './js/hands.js';
         import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
@@ -467,8 +463,43 @@
 
             const webxrButtonsContainer = document.getElementById('webxr-buttons');
 
-            // AR Button can stay, but we create the VR Button manually to request hand tracking
-            webxrButtonsContainer.appendChild(ARButton.createButton(renderer));
+            // AR Button - custom implementation to request hand tracking
+            if ('xr' in navigator) {
+                navigator.xr.isSessionSupported('immersive-ar').then((supported) => {
+                    if (supported) {
+                        const arButton = document.createElement('button');
+                        arButton.textContent = 'Enter AR';
+                        arButton.id = 'ARButton'; // Keep ID for compatibility
+
+                        arButton.addEventListener('click', () => {
+                            const currentSession = renderer.xr.getSession();
+                            if (currentSession) {
+                                currentSession.end();
+                            } else {
+                                const sessionInit = {
+                                    optionalFeatures: ['hand-tracking', 'dom-overlay', 'hit-test'],
+                                    domOverlay: { root: document.body }
+                                };
+                                navigator.xr.requestSession('immersive-ar', sessionInit).then((session) => {
+                                    renderer.xr.setSession(session);
+                                });
+                            }
+                        });
+
+                        renderer.xr.addEventListener('sessionstart', (event) => {
+                            if (renderer.xr.getSession()?.environmentBlendMode.includes('blend')) { // Simple check for AR
+                                arButton.textContent = 'Exit AR';
+                            }
+                        });
+                        renderer.xr.addEventListener('sessionend', (event) => {
+                             arButton.textContent = 'Enter AR';
+                        });
+
+                        webxrButtonsContainer.appendChild(arButton);
+                    }
+                });
+            }
+
 
             function updateButtonState(button, session) {
                 if (session) {
@@ -923,7 +954,6 @@
             }
 
             const browseButton = document.getElementById('browse-button');
-            // const fallbackInput = document.getElementById('file-input-fallback');
 
             async function handleFile(file) {
                 const url = URL.createObjectURL(file);
@@ -960,21 +990,10 @@
                             console.error(err);
                         }
                     }
-                } // else {
-                //     fallbackInput.click();
-                // }
+                }
             });
 
-            // fallbackInput.addEventListener('change', (event) => {
-            //     const file = event.target.files[0];
-            //     if (file) {
-            //         handleFile(file);
-            //     }
-            //     event.target.value = ''; // Reset fallback input
-            // });
-
             const browseImageButton = document.getElementById('browse-image-button');
-            // const imageFallbackInput = document.getElementById('image-input-fallback');
 
             async function handleImageFile(file) {
                 const url = URL.createObjectURL(file);
@@ -1019,18 +1038,8 @@
                             console.error(err);
                         }
                     }
-                } // else {
-                //     imageFallbackInput.click();
-                // }
+                }
             });
-
-            // imageFallbackInput.addEventListener('change', (event) => {
-            //     const file = event.target.files[0];
-            //     if (file) {
-            //         handleImageFile(file);
-            //     }
-            //     event.target.value = ''; // Reset fallback input
-            // });
 
             const listContainer = document.getElementById('sample-models-list');
             listContainer.addEventListener('click', (event) => {
@@ -1160,10 +1169,9 @@
             }
 
             function render(time, frame) {
-                if (renderer.xr.isPresenting && frame) {
-                    const referenceSpace = renderer.xr.getReferenceSpace();
-                    if (leftHand) leftHand.update(frame, referenceSpace);
-                    if (rightHand) rightHand.update(frame, referenceSpace);
+                if (renderer.xr.isPresenting) {
+                    if (leftHand) leftHand.update();
+                    if (rightHand) rightHand.update();
                 }
 
                 if (settings.showFPS) {

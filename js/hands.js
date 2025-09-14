@@ -1,20 +1,9 @@
 import * as THREE from 'three';
 
-// Constants for hand visualization
-const JOINT_RADIUS = 0.006;
-const BONE_RADIUS = 0.004;
+// Make the radius constants available for tweaking.
+export const BONE_RADIUS = 0.004;
+export const JOINT_RADIUS = 0.003; // This is not used here, but exported for consistency if needed elsewhere.
 
-// Defines the names of the joints in the hand, in the order specified by the WebXR API
-const XR_HAND_JOINTS = [
-  "wrist",
-  "thumb-metacarpal", "thumb-phalanx-proximal", "thumb-phalanx-distal", "thumb-tip",
-  "index-finger-metacarpal", "index-finger-phalanx-proximal", "index-finger-phalanx-intermediate", "index-finger-phalanx-distal", "index-finger-tip",
-  "middle-finger-metacarpal", "middle-finger-phalanx-proximal", "middle-finger-phalanx-intermediate", "middle-finger-phalanx-distal", "middle-finger-tip",
-  "ring-finger-metacarpal", "ring-finger-phalanx-proximal", "ring-finger-phalanx-intermediate", "ring-finger-phalanx-distal", "ring-finger-tip",
-  "pinky-finger-metacarpal", "pinky-finger-phalanx-proximal", "pinky-finger-phalanx-intermediate", "pinky-finger-phalanx-distal", "pinky-finger-tip",
-];
-
-// Defines the connections between the joints to form the bones of the hand
 const BONE_CONNECTIONS = {
     "wrist": ["thumb-metacarpal", "index-finger-metacarpal", "middle-finger-metacarpal", "ring-finger-metacarpal", "pinky-finger-metacarpal"],
     "thumb-metacarpal": ["thumb-phalanx-proximal"],
@@ -39,122 +28,78 @@ const BONE_CONNECTIONS = {
 };
 
 /**
- * A class that creates and manages a 3D hand model for WebXR.
+ * A class that creates and manages the connecting "bone" meshes for a WebXR hand model.
+ * It works by augmenting the THREE.XRHandSpace object provided by the renderer.
  */
 export class Hand {
-    constructor(handModel, handedness) {
-        this.handModel = handModel;
-        this.handedness = handedness;
-        this.joints = {};
-        this.bones = {};
+    constructor(handModel) {
+        this.handModel = handModel; // This is the THREE.XRHandSpace object
+        this.bones = [];
 
-        const jointMaterial = new THREE.MeshStandardMaterial({
-            color: 0x00bbaa,
-            metalness: 0.1,
-            roughness: 0.5
-        });
         const boneMaterial = new THREE.MeshStandardMaterial({
             color: 0xcccccc,
             metalness: 0.1,
             roughness: 0.5
         });
 
-        // Create joint meshes
-        for (const jointName of XR_HAND_JOINTS) {
-            const joint = new THREE.Mesh(
-                new THREE.SphereGeometry(JOINT_RADIUS, 10, 10),
-                jointMaterial
-            );
-            joint.name = jointName;
-            this.joints[jointName] = joint;
-            this.handModel.add(joint);
-        }
-
-        // Create bone meshes
+        // Create and add the bone meshes to the hand model
         for (const startJoint in BONE_CONNECTIONS) {
             const endJoints = BONE_CONNECTIONS[startJoint];
             for (const endJoint of endJoints) {
-                // The bone is a cylinder that will be scaled and oriented between two joints.
-                // We give it a default length of 1; the `update` method will scale it.
                 const bone = new THREE.Mesh(
                     new THREE.CylinderGeometry(BONE_RADIUS, BONE_RADIUS, 1, 12),
                     boneMaterial
                 );
-                const boneName = `${startJoint}-${endJoint}`;
-                bone.name = boneName;
-                this.bones[boneName] = bone;
+                bone.name = `${startJoint}-${endJoint}`;
+                this.bones.push(bone);
                 this.handModel.add(bone);
             }
         }
-
-        // Hide the hand until it's actively tracking
-        this.handModel.visible = false;
     }
 
     /**
-     * Updates the positions of the hand's joints and bones based on the XRFrame data.
-     * @param {XRFrame} xrFrame - The current XR frame.
-     * @param {XRReferenceSpace} referenceSpace - The reference space for poses.
+     * Updates the positions and orientations of the bone meshes.
      */
-    update(xrFrame, referenceSpace) {
-        if (!this.handModel.visible) {
-            return;
-        }
+    update() {
+        // The handModel is the THREE.XRHandSpace object, which is a Group.
+        // Its `joints` property is a map of the XRJointSpace objects (also Groups).
+        // Three.js updates the matrices of these joint groups automatically.
+        // We just need to connect them with our bone meshes.
+        for (const bone of this.bones) {
+            const [startJointName, endJointName] = bone.name.split('-');
 
-        let handInputSource = null;
-        for (const source of xrFrame.session.inputSources) {
-            if (source.handedness === this.handedness && source.hand) {
-                handInputSource = source.hand;
-                break;
-            }
-        }
+            const startJoint = this.handModel.joints[startJointName];
+            const endJoint = this.handModel.joints[endJointName];
 
-        if (handInputSource) {
-            // Update the visibility and pose of each joint
-            for (const jointName in this.joints) {
-                const jointMesh = this.joints[jointName];
-                const xrJoint = handInputSource.get(jointName);
-                if (xrJoint) {
-                    const pose = xrFrame.getJointPose(xrJoint, referenceSpace);
-                    if (pose) {
-                        jointMesh.matrix.fromArray(pose.transform.matrix);
-                        jointMesh.matrixAutoUpdate = false; // Important: we are setting the matrix directly
-                        jointMesh.visible = true;
-                    } else {
-                        jointMesh.visible = false;
-                    }
-                } else {
-                    jointMesh.visible = false;
-                }
-            }
+            // The joints are managed by three.js, so we check if they are available.
+            if (startJoint && endJoint) {
+                const startPos = new THREE.Vector3();
+                const endPos = new THREE.Vector3();
 
-            // Update the visibility, scale, and orientation of each bone
-            for (const boneName in this.bones) {
-                const boneMesh = this.bones[boneName];
-                const [startJointName, endJointName] = boneName.split('-');
+                // Get the world position of the joints
+                startJoint.getWorldPosition(startPos);
+                endJoint.getWorldPosition(endPos);
 
-                const startJoint = this.joints[startJointName];
-                const endJoint = this.joints[endJointName];
+                // The bone mesh is a child of the handModel, so its transforms should be
+                // relative to the handModel's local space. We need to convert the world
+                // positions of the joints into the handModel's local space.
+                const localStart = this.handModel.worldToLocal(startPos.clone());
+                const localEnd = this.handModel.worldToLocal(endPos.clone());
 
-                // Only display the bone if both of its joints are visible
-                if (startJoint && endJoint && startJoint.visible && endJoint.visible) {
-                    const startPos = startJoint.position;
-                    const endPos = endJoint.position;
+                // Calculate the distance and set the bone's scale.
+                const distance = localStart.distanceTo(localEnd);
+                bone.scale.y = distance;
 
-                    // Calculate bone length and scale the cylinder accordingly
-                    const distance = startPos.distanceTo(endPos);
-                    boneMesh.scale.y = distance;
+                // Position the bone in the midpoint between the two joints.
+                bone.position.lerpVectors(localStart, localEnd, 0.5);
 
-                    // Position the bone in the middle of the two joints
-                    boneMesh.position.lerpVectors(startPos, endPos, 0.5);
+                // Orient the bone to point from the start joint to the end joint.
+                bone.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), localEnd.clone().sub(localStart).normalize());
 
-                    // Orient the bone to point from the start joint to the end joint
-                    boneMesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), endPos.clone().sub(startPos).normalize());
-
-                    boneMesh.visible = true;
-                } else {
-                    boneMesh.visible = false;
-                }
+                bone.visible = true;
+            } else {
+                // Hide the bone if one of its joints is not tracking.
+                bone.visible = false;
             }
         }
     }
