@@ -288,7 +288,7 @@
                 <hr>
             </div>
             <!-- AGENT_NOTE: Always update this version number when changing files. -->
-            <div id="version-info" style="font-size: 12px; color: #888; position: absolute; bottom: 10px;">Version: 2.8.7</div>
+            <div id="version-info" style="font-size: 12px; color: #888; position: absolute; bottom: 10px;">Version: 2.8.10</div>
         </div>
     </div>
     <div id="fps-counter" style="position: absolute; top: 10px; right: 10px; color: white; background: rgba(0,0,0,0.5); padding: 5px; font-family: sans-serif; display: none; z-index: 10;"></div>
@@ -308,43 +308,13 @@
         import { VRButton } from 'three/addons/webxr/VRButton.js';
         import { ARButton } from 'three/addons/webxr/ARButton.js';
         import { XRControllerModelFactory } from 'three/addons/webxr/XRControllerModelFactory.js';
+        import { XRHandModelFactory } from 'three/addons/webxr/XRHandModelFactory.js';
         import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
         import { OBJLoader } from 'three/addons/loaders/OBJLoader.js';
         import { STLLoader } from 'three/addons/loaders/STLLoader.js';
-        import { Hand } from './hands.js';
 
         function main() {
-            async function logToServer(level, message, payload = null) {
-                const timestamp = new Date().toISOString();
-                let logString = `[${timestamp}] [${level.toUpperCase()}] ${message}`;
-
-                if (payload !== null) {
-                    const replacer = (key, value) => {
-                        if(value instanceof Map) {
-                            return Object.fromEntries(value.entries());
-                        } else {
-                            return value;
-                        }
-                    };
-                    logString += ` | Payload: ${JSON.stringify(payload, replacer, 2)}`;
-                }
-
-                try {
-                    await fetch('log_debug.php', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'text/plain',
-                        },
-                        body: logString,
-                    });
-                } catch (error) {
-                    console.error('Failed to log to server:', error);
-                }
-            }
-
             let mixer;
-            let leftHand, rightHand;
-            let frameCounter = 0;
             // --- Settings ---
             const settings = {
                 antialias: JSON.parse(localStorage.getItem('settings.antialias')) ?? true,
@@ -577,75 +547,41 @@
 
             const scene = new THREE.Scene();
 
-
-            // VR Controllers Setup
-            const controller1 = renderer.xr.getController(0);
-            scene.add(controller1);
-            const controller2 = renderer.xr.getController(1);
-            scene.add(controller2);
-
+            // --- VR Controllers Setup ---
             const controllerModelFactory = new XRControllerModelFactory();
+            const handModelFactory = new XRHandModelFactory();
+
+            // Controller 1
+            const controller1 = renderer.xr.getController(0);
+            controller1.addEventListener( 'connected', function ( event ) {
+                this.gamepad = event.data.gamepad;
+            } );
+            scene.add(controller1);
 
             const controllerGrip1 = renderer.xr.getControllerGrip(0);
+            controllerGrip1.add( controllerModelFactory.createControllerModel( controllerGrip1 ) );
             scene.add(controllerGrip1);
-            const controllerGrip2 = renderer.xr.getControllerGrip(1);
-            scene.add(controllerGrip2);
 
             const hand1 = renderer.xr.getHand(0);
+            hand1.add( handModelFactory.createHandModel( hand1 ) );
             scene.add(hand1);
+
+            // Controller 2
+            const controller2 = renderer.xr.getController(1);
+            controller2.addEventListener( 'connected', function ( event ) {
+                this.gamepad = event.data.gamepad;
+            } );
+            scene.add(controller2);
+
+            const controllerGrip2 = renderer.xr.getControllerGrip(1);
+            controllerGrip2.add( controllerModelFactory.createControllerModel( controllerGrip2 ) );
+            scene.add(controllerGrip2);
+
             const hand2 = renderer.xr.getHand(1);
+            hand2.add( handModelFactory.createHandModel( hand2 ) );
             scene.add(hand2);
 
-
-            // --- Event Listeners ---
-            controller1.addEventListener('connected', function ( event ) {
-                logToServer('INFO', '--- CONTROLLER 1 CONNECTED EVENT FIRED ---', { profiles: event.data.profiles });
-                this.gamepad = event.data.gamepad;
-                const isHand = event.data.profiles.some(profile => profile.includes('hand'));
-                logToServer('INFO', `Is controller 1 a hand? ${isHand}`);
-
-                if (isHand) {
-                    logToServer('INFO', "Hand detected for controller 1. Using custom model.");
-                    leftHand = new Hand(hand1);
-                    hand1.add(leftHand.model);
-                } else {
-                    logToServer('INFO', "Controller detected for controller 1. Using factory model.");
-                    controllerGrip1.visible = true;
-                    controllerGrip1.add(controllerModelFactory.createControllerModel(controllerGrip1));
-                }
-            });
-
-            controller1.addEventListener('disconnected', function () {
-                console.log('Controller 1 disconnected.');
-                controllerGrip1.clear();
-                hand1.clear();
-                leftHand = null;
-            });
-
-            controller2.addEventListener('connected', function ( event ) {
-                logToServer('INFO', '--- CONTROLLER 2 CONNECTED EVENT FIRED ---', { profiles: event.data.profiles });
-                this.gamepad = event.data.gamepad;
-                const isHand = event.data.profiles.some(profile => profile.includes('hand'));
-                logToServer('INFO', `Is controller 2 a hand? ${isHand}`);
-
-                if (isHand) {
-                    logToServer('INFO', "Hand detected for controller 2. Using custom model.");
-                    rightHand = new Hand(hand2);
-                    hand2.add(rightHand.model);
-                } else {
-                    logToServer('INFO', "Controller detected for controller 2. Using factory model.");
-                    controllerGrip2.visible = true;
-                    controllerGrip2.add(controllerModelFactory.createControllerModel(controllerGrip2));
-                }
-            });
-
-            controller2.addEventListener('disconnected', function () {
-                console.log('Controller 2 disconnected.');
-                controllerGrip2.clear();
-                hand2.clear();
-                rightHand = null;
-            });
-
+            // --- End VR Controllers Setup ---
 
             let gripPressed = [false, false];
             let triggerPressed = [false, false];
@@ -1144,8 +1080,6 @@
             }
 
             function render(time) {
-                if(frameCounter === 0) console.log("--- RENDER LOOP IS RUNNING ---");
-                frameCounter++;
                 if (settings.showFPS) {
                     fpsCounter.frames++;
                     if (time >= fpsCounter.lastTime + 1000) {
@@ -1159,19 +1093,7 @@
                 if (mixer) {
                     mixer.update(delta);
                 }
-
-                if (leftHand) {
-                    if (frameCounter % 60 === 0) {
-                        logToServer('DEBUG', 'Hand 1 joints map', hand1.joints);
-                    }
-                    leftHand.update(hand1);
-                }
-                if (rightHand) {
-                    rightHand.update(hand2);
-                }
-
                 handleControllerInput(delta);
-
                 if (resizeRendererToDisplaySize(renderer)) {
                     const canvas = renderer.domElement;
                     camera.aspect = canvas.clientWidth / canvas.clientHeight;
