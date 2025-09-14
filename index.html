@@ -1169,9 +1169,10 @@
             }
 
             function render(time, frame) {
-                if (renderer.xr.isPresenting) {
-                    if (leftHand) leftHand.update();
-                    if (rightHand) rightHand.update();
+                if (renderer.xr.isPresenting && frame) {
+                    const referenceSpace = renderer.xr.getReferenceSpace();
+                    if (leftHand) leftHand.update(frame, referenceSpace);
+                    if (rightHand) rightHand.update(frame, referenceSpace);
                 }
 
                 if (settings.showFPS) {
