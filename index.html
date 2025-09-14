@@ -313,6 +313,25 @@
         import { OBJLoader } from 'three/addons/loaders/OBJLoader.js';
         import { STLLoader } from 'three/addons/loaders/STLLoader.js';
 
+        // --- Server-side Logging ---
+        function logToServer(message) {
+            const timestamp = new Date().toISOString();
+            let finalMessage;
+            if (typeof message === 'object') {
+                try {
+                    finalMessage = `${timestamp}: ${JSON.stringify(message, null, 2)}`;
+                } catch (e) {
+                    finalMessage = `${timestamp}: [Unserializable Object]`;
+                }
+            } else {
+                finalMessage = `${timestamp}: ${message}`;
+            }
+            const dataToSend = new URLSearchParams();
+            dataToSend.append('log', finalMessage);
+            navigator.sendBeacon('log_debug.php', dataToSend);
+        }
+        // --- End Logging ---
+
         let leftHand, rightHand;
 
         function main() {
@@ -563,6 +582,7 @@
             scene.add(hand1);
 
             controller1.addEventListener('connected', function ( event ) {
+                logToServer({ msg: 'Controller 1 connected', profiles: event.data.profiles });
                 this.gamepad = event.data.gamepad;
                 const isHand = event.data.profiles.some(profile => profile.includes('hand'));
                 if (isHand) {
@@ -594,6 +614,7 @@
             scene.add(hand2);
 
             controller2.addEventListener('connected', function ( event ) {
+                logToServer({ msg: 'Controller 2 connected', profiles: event.data.profiles });
                 this.gamepad = event.data.gamepad;
                 const isHand = event.data.profiles.some(profile => profile.includes('hand'));
                 if (isHand) {
