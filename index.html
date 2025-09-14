@@ -305,7 +305,7 @@
                 <hr>
             </div>
             <!-- AGENT_NOTE: Always update this version number when changing files. -->
-            <div id="version-info" style="font-size: 12px; color: #888; position: absolute; bottom: 10px;">Version: 2.8.16</div>
+            <div id="version-info" style="font-size: 12px; color: #888; position: absolute; bottom: 10px;">Version: 2.8.17</div>
         </div>
     </div>
     <div id="fps-counter" style="position: absolute; top: 10px; right: 10px; color: white; background: rgba(0,0,0,0.5); padding: 5px; font-family: sans-serif; display: none; z-index: 10;"></div>
@@ -1125,6 +1125,7 @@
             async function handleImageFile(file) {
                 const url = URL.createObjectURL(file);
                 textureLoader.load(url, (texture) => {
+                    texture.colorSpace = THREE.SRGBColorSpace;
                     URL.revokeObjectURL(url); // Revoke URL after loading
                     const aspectRatio = texture.image.width / texture.image.height;
                     const imageHeight = 2; // Arbitrary height
