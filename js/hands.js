@@ -92,24 +92,37 @@ export class Hand {
     }
 
     /**
-     * Updates the positions of the hand's joints and bones.
-     * This method should be called in the main render loop.
+     * Updates the positions of the hand's joints and bones based on the XRFrame data.
+     * @param {XRFrame} xrFrame - The current XR frame.
+     * @param {XRReferenceSpace} referenceSpace - The reference space for poses.
      */
-    update() {
-        // The visibility of the handModel group is controlled by the Three.js WebXRManager.
-        // If the hand is not tracking, the handModel will be invisible.
-        if (this.handModel.visible && this.handModel.joints) {
-            // Update the visibility and pose of each joint in our custom model
+    update(xrFrame, referenceSpace) {
+        if (!this.handModel.visible) {
+            return;
+        }
+
+        let handInputSource = null;
+        for (const source of xrFrame.session.inputSources) {
+            if (source.handedness === this.handedness && source.hand) {
+                handInputSource = source.hand;
+                break;
+            }
+        }
+
+        if (handInputSource) {
+            // Update the visibility and pose of each joint
             for (const jointName in this.joints) {
                 const jointMesh = this.joints[jointName];
-                const xrJoint = this.handModel.joints[jointName];
-
-                // The `xrJoint` is an XRJointSpace, which is a Group. Its matrix is updated
-                // by the renderer automatically. We just need to copy the pose.
+                const xrJoint = handInputSource.get(jointName);
                 if (xrJoint) {
-                    jointMesh.position.copy(xrJoint.position);
-                    jointMesh.quaternion.copy(xrJoint.quaternion);
-                    jointMesh.visible = true;
+                    const pose = xrFrame.getJointPose(xrJoint, referenceSpace);
+                    if (pose) {
+                        jointMesh.matrix.fromArray(pose.transform.matrix);
+                        jointMesh.matrixAutoUpdate = false; // Important: we are setting the matrix directly
+                        jointMesh.visible = true;
+                    } else {
+                        jointMesh.visible = false;
+                    }
                 } else {
                     jointMesh.visible = false;
                 }

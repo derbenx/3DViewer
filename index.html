@@ -288,7 +288,7 @@
                 <hr>
             </div>
             <!-- AGENT_NOTE: Always update this version number when changing files. -->
-            <div id="version-info" style="font-size: 12px; color: #888; position: absolute; bottom: 10px;">Version: 2.8.10</div>
+            <div id="version-info" style="font-size: 12px; color: #888; position: absolute; bottom: 10px;">Version: 2.8.11</div>
         </div>
     </div>
     <div id="fps-counter" style="position: absolute; top: 10px; right: 10px; color: white; background: rgba(0,0,0,0.5); padding: 5px; font-family: sans-serif; display: none; z-index: 10;"></div>
@@ -308,7 +308,7 @@
         import { VRButton } from 'three/addons/webxr/VRButton.js';
         import { ARButton } from 'three/addons/webxr/ARButton.js';
         import { XRControllerModelFactory } from 'three/addons/webxr/XRControllerModelFactory.js';
-        import { Hand } from './js/hand.js';
+        import { Hand } from './js/hands.js';
         import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
         import { OBJLoader } from 'three/addons/loaders/OBJLoader.js';
         import { STLLoader } from 'three/addons/loaders/STLLoader.js';
@@ -1112,9 +1112,10 @@
             }
 
             function render(time, frame) {
-                if (renderer.xr.isPresenting) {
-                    if (leftHand) leftHand.update();
-                    if (rightHand) rightHand.update();
+                if (renderer.xr.isPresenting && frame) {
+                    const referenceSpace = renderer.xr.getReferenceSpace();
+                    if (leftHand) leftHand.update(frame, referenceSpace);
+                    if (rightHand) rightHand.update(frame, referenceSpace);
                 }
 
                 if (settings.showFPS) {
