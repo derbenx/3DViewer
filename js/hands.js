@@ -2,7 +2,7 @@ import * as THREE from 'three';
 
 // Make the radius constants available for tweaking.
 export const BONE_RADIUS = 0.004;
-export const JOINT_RADIUS = 0.003; // This is not used here, but exported for consistency if needed elsewhere.
+export const JOINT_RADIUS = 0.003;
 
 const BONE_CONNECTIONS = {
     "wrist": ["thumb-metacarpal", "index-finger-metacarpal", "middle-finger-metacarpal", "ring-finger-metacarpal", "pinky-finger-metacarpal"],
@@ -61,28 +61,25 @@ export class Hand {
      * Updates the positions and orientations of the bone meshes.
      */
     update() {
-        // The handModel is the THREE.XRHandSpace object, which is a Group.
-        // Its `joints` property is a map of the XRJointSpace objects (also Groups).
-        // Three.js updates the matrices of these joint groups automatically.
-        // We just need to connect them with our bone meshes.
         for (const bone of this.bones) {
             const [startJointName, endJointName] = bone.name.split('-');
 
             const startJoint = this.handModel.joints[startJointName];
             const endJoint = this.handModel.joints[endJointName];
 
-            // The joints are managed by three.js, so we check if they are available.
             if (startJoint && endJoint) {
-                const startPos = new THREE.Vector3();
-                const endPos = new THREE.Vector3();
+                // The joints are Object3Ds whose matrices are updated by the WebXRManager.
+                // We just need to connect our bone mesh between them.
 
-                // Get the world position of the joints
+                // Get the world positions of the joints
+                const startPos = new THREE.Vector3();
                 startJoint.getWorldPosition(startPos);
+
+                const endPos = new THREE.Vector3();
                 endJoint.getWorldPosition(endPos);
 
-                // The bone mesh is a child of the handModel, so its transforms should be
-                // relative to the handModel's local space. We need to convert the world
-                // positions of the joints into the handModel's local space.
+                // The bone mesh is a child of the handModel group. All transforms
+                // should be done in the handModel's local space.
                 const localStart = this.handModel.worldToLocal(startPos.clone());
                 const localEnd = this.handModel.worldToLocal(endPos.clone());
 
@@ -90,15 +87,18 @@ export class Hand {
                 const distance = localStart.distanceTo(localEnd);
                 bone.scale.y = distance;
 
-                // Position the bone in the midpoint between the two joints.
+                // Position the bone in the midpoint
                 bone.position.lerpVectors(localStart, localEnd, 0.5);
 
-                // Orient the bone to point from the start joint to the end joint.
-                bone.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), localEnd.clone().sub(localStart).normalize());
+                // Orient the bone using lookAt
+                bone.lookAt(localEnd);
+                // The default cylinder geometry is oriented along the Y axis.
+                // `lookAt` orients the Z axis. We need to rotate the bone
+                // by 90 degrees around its X axis to align its length with the lookAt direction.
+                bone.rotateX(Math.PI / 2);
 
                 bone.visible = true;
             } else {
-                // Hide the bone if one of its joints is not tracking.
                 bone.visible = false;
             }
         }
