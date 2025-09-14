@@ -68,20 +68,13 @@ export class Hand {
             const endJoint = this.handModel.joints[endJointName];
 
             if (startJoint && endJoint) {
-                // The joints are Object3Ds whose matrices are updated by the WebXRManager.
-                // We just need to connect our bone mesh between them.
+                const localStart = new THREE.Vector3();
+                const localEnd = new THREE.Vector3();
 
-                // Get the world positions of the joints
-                const startPos = new THREE.Vector3();
-                startJoint.getWorldPosition(startPos);
-
-                const endPos = new THREE.Vector3();
-                endJoint.getWorldPosition(endPos);
-
-                // The bone mesh is a child of the handModel group. All transforms
-                // should be done in the handModel's local space.
-                const localStart = this.handModel.worldToLocal(startPos.clone());
-                const localEnd = this.handModel.worldToLocal(endPos.clone());
+                // The joint positions are in world space, so we need to convert
+                // them to the local space of the hand model.
+                this.handModel.worldToLocal(startJoint.getWorldPosition(localStart));
+                this.handModel.worldToLocal(endJoint.getWorldPosition(localEnd));
 
                 // Calculate the distance and set the bone's scale.
                 const distance = localStart.distanceTo(localEnd);
@@ -92,6 +85,7 @@ export class Hand {
 
                 // Orient the bone using lookAt
                 bone.lookAt(localEnd);
+
                 // The default cylinder geometry is oriented along the Y axis.
                 // `lookAt` orients the Z axis. We need to rotate the bone
                 // by 90 degrees around its X axis to align its length with the lookAt direction.
