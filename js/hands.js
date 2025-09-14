@@ -1,5 +1,24 @@
 import * as THREE from 'three';
 
+// --- Server-side Logging ---
+function logToServer(message) {
+    const timestamp = new Date().toISOString();
+    let finalMessage;
+    if (typeof message === 'object') {
+        try {
+            finalMessage = `${timestamp}: ${JSON.stringify(message, null, 2)}`;
+        } catch (e) {
+            finalMessage = `${timestamp}: [Unserializable Object]`;
+        }
+    } else {
+        finalMessage = `${timestamp}: ${message}`;
+    }
+    const dataToSend = new URLSearchParams();
+    dataToSend.append('log', finalMessage);
+    navigator.sendBeacon('log_debug.php', dataToSend);
+}
+// --- End Logging ---
+
 // Constants for hand visualization
 const JOINT_RADIUS = 0.006;
 const BONE_RADIUS = 0.004;
@@ -116,6 +135,9 @@ export class Hand {
                 const xrJoint = handInputSource.get(jointName);
                 if (xrJoint) {
                     const pose = xrFrame.getJointPose(xrJoint, referenceSpace);
+                    if (jointName === 'wrist') {
+                        logToServer({ msg: 'Wrist Pose', matrix: Array.from(pose.transform.matrix) });
+                    }
                     if (pose) {
                         jointMesh.matrix.fromArray(pose.transform.matrix);
                         jointMesh.matrixAutoUpdate = false; // Important: we are setting the matrix directly
@@ -151,6 +173,15 @@ export class Hand {
                     // Orient the bone to point from the start joint to the end joint
                     boneMesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), endPos.clone().sub(startPos).normalize());
 
+                    if (boneName === 'wrist-thumb-metacarpal') {
+                        logToServer({
+                            msg: 'Bone Calc',
+                            name: boneName,
+                            start: startPos.toArray(),
+                            end: endPos.toArray(),
+                            distance: distance
+                        });
+                    }
                     boneMesh.visible = true;
                 } else {
                     boneMesh.visible = false;
