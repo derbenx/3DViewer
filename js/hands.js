@@ -48,6 +48,10 @@ export class Hand {
         this.joints = {};
         this.bones = {};
 
+        // Utility matrices for calculations
+        this.parentInverse = new THREE.Matrix4();
+        this.jointWorldMatrix = new THREE.Matrix4();
+
         const jointMaterial = new THREE.MeshStandardMaterial({
             color: 0x00bbaa,
             metalness: 0.1,
@@ -105,16 +109,24 @@ export class Hand {
         if (handInputSource) {
             this.handModel.visible = true;
 
+            // Get the inverse of the parent's world matrix
+            this.parentInverse.copy(this.handModel.matrixWorld).invert();
+
             // Update the visibility and pose of each joint
             for (const jointName of XR_HAND_JOINTS) {
                 const jointMesh = this.joints[jointName];
-                if (!jointMesh) continue; // Should not happen, but good practice
+                if (!jointMesh) continue;
 
                 const xrJoint = handInputSource.get(jointName);
                 if (xrJoint) {
                     const pose = xrFrame.getJointPose(xrJoint, referenceSpace);
                     if (pose) {
-                        jointMesh.matrix.fromArray(pose.transform.matrix);
+                        // Get the world matrix from the pose
+                        this.jointWorldMatrix.fromArray(pose.transform.matrix);
+
+                        // Transform the world matrix to the parent's local space
+                        jointMesh.matrix.copy(this.parentInverse).multiply(this.jointWorldMatrix);
+
                         jointMesh.matrixAutoUpdate = false;
                         jointMesh.visible = true;
                     } else {
@@ -137,16 +149,16 @@ export class Hand {
                     const startPos = new THREE.Vector3();
                     const endPos = new THREE.Vector3();
 
+                    // Decompose the local matrix to get local positions
                     startJoint.matrix.decompose(startPos, new THREE.Quaternion(), new THREE.Vector3());
                     endJoint.matrix.decompose(endPos, new THREE.Quaternion(), new THREE.Vector3());
 
                     const distance = startPos.distanceTo(endPos);
 
-                    if (distance > 0.0001) { // small threshold to avoid zero-scale issues
+                    if (distance > 0.0001) {
                         boneMesh.scale.y = distance;
                         boneMesh.position.lerpVectors(startPos, endPos, 0.5);
 
-                        // Correctly orient the cylinder
                         const direction = endPos.clone().sub(startPos).normalize();
                         const quaternion = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), direction);
                         boneMesh.quaternion.copy(quaternion);
