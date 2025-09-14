@@ -48,10 +48,6 @@ export class Hand {
         this.joints = {};
         this.bones = {};
 
-        // Utility matrices for calculations
-        this.parentInverse = new THREE.Matrix4();
-        this.jointWorldMatrix = new THREE.Matrix4();
-
         const jointMaterial = new THREE.MeshStandardMaterial({
             color: 0x00bbaa,
             metalness: 0.1,
@@ -108,27 +104,25 @@ export class Hand {
 
         if (handInputSource) {
             this.handModel.visible = true;
-
-            // Get the inverse of the parent's world matrix
-            this.parentInverse.copy(this.handModel.matrixWorld).invert();
+            let logString = ""
+            if (this.handedness == "left") {
+                logString += `${Date.now()}\n`;
+            }
 
             // Update the visibility and pose of each joint
-            for (const jointName of XR_HAND_JOINTS) {
+            for (const jointName in this.joints) {
                 const jointMesh = this.joints[jointName];
-                if (!jointMesh) continue;
-
                 const xrJoint = handInputSource.get(jointName);
                 if (xrJoint) {
                     const pose = xrFrame.getJointPose(xrJoint, referenceSpace);
                     if (pose) {
-                        // Get the world matrix from the pose
-                        this.jointWorldMatrix.fromArray(pose.transform.matrix);
-
-                        // Transform the world matrix to the parent's local space
-                        jointMesh.matrix.copy(this.parentInverse).multiply(this.jointWorldMatrix);
-
+                        jointMesh.matrix.fromArray(pose.transform.matrix);
                         jointMesh.matrixAutoUpdate = false;
                         jointMesh.visible = true;
+                        if (this.handedness == "left") {
+                            const position = new THREE.Vector3().setFromMatrixPosition(jointMesh.matrix);
+                            logString += `joint:${jointName}:${position.x},${position.y},${position.z}\n`;
+                        }
                     } else {
                         jointMesh.visible = false;
                     }
@@ -149,27 +143,38 @@ export class Hand {
                     const startPos = new THREE.Vector3();
                     const endPos = new THREE.Vector3();
 
-                    // Decompose the local matrix to get local positions
                     startJoint.matrix.decompose(startPos, new THREE.Quaternion(), new THREE.Vector3());
                     endJoint.matrix.decompose(endPos, new THREE.Quaternion(), new THREE.Vector3());
 
                     const distance = startPos.distanceTo(endPos);
 
-                    if (distance > 0.0001) {
+                    if (distance > 0) {
                         boneMesh.scale.y = distance;
                         boneMesh.position.lerpVectors(startPos, endPos, 0.5);
-
-                        const direction = endPos.clone().sub(startPos).normalize();
+                        const direction = new THREE.Vector3().subVectors(endPos, startPos).normalize();
                         const quaternion = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), direction);
                         boneMesh.quaternion.copy(quaternion);
-
                         boneMesh.visible = true;
+
+                        if (this.handedness == "left") {
+                            logString += `bone:${boneName}:${startPos.x},${startPos.y},${startPos.z}:${endPos.x},${endPos.y},${endPos.z}\n`;
+                        }
+
                     } else {
                         boneMesh.visible = false;
                     }
                 } else {
                     boneMesh.visible = false;
                 }
+            }
+            if (this.handedness == "left" && logString) {
+                fetch('log_debug.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: `log=${encodeURIComponent(logString)}`
+                });
             }
         } else {
             this.handModel.visible = false;
