@@ -528,14 +528,30 @@
 
             const webxrButtonsContainer = document.getElementById('webxr-buttons');
 
-            // AR Button - custom implementation to request hand tracking
+            function updateEnterExitButtons() {
+                const session = renderer.xr.getSession();
+                const vrButton = document.getElementById('VRButton');
+                const arButton = document.getElementById('ARButton');
+
+                if (!session) {
+                    // No session, both should say "Enter"
+                    if (vrButton) vrButton.textContent = 'Enter VR';
+                    if (arButton) arButton.textContent = 'Enter AR';
+                } else {
+                    // In a session, both buttons should exit and have the same text.
+                    if (vrButton) vrButton.textContent = 'Exit VR/AR';
+                    if (arButton) arButton.textContent = 'Exit VR/AR';
+                }
+            }
+            renderer.xr.addEventListener('sessionstart', updateEnterExitButtons);
+            renderer.xr.addEventListener('sessionend', updateEnterExitButtons);
+
+            // AR Button
             if ('xr' in navigator) {
                 navigator.xr.isSessionSupported('immersive-ar').then((supported) => {
                     if (supported) {
                         const arButton = document.createElement('button');
-                        arButton.textContent = 'Enter AR';
-                        arButton.id = 'ARButton'; // Keep ID for compatibility
-
+                        arButton.id = 'ARButton';
                         arButton.addEventListener('click', () => {
                             const currentSession = renderer.xr.getSession();
                             if (currentSession) {
@@ -550,40 +566,18 @@
                                 });
                             }
                         });
-
-                        renderer.xr.addEventListener('sessionstart', (event) => {
-                            if (renderer.xr.getSession()?.environmentBlendMode.includes('blend')) { // Simple check for AR
-                                arButton.textContent = 'Exit AR';
-                            }
-                        });
-                        renderer.xr.addEventListener('sessionend', (event) => {
-                             arButton.textContent = 'Enter AR';
-                        });
-
                         webxrButtonsContainer.appendChild(arButton);
+                        updateEnterExitButtons(); // Set initial text
                     }
                 });
             }
 
-
-            function updateButtonState(button, session) {
-                if (session) {
-                    button.textContent = 'Exit VR';
-                    session.addEventListener('end', () => {
-                        button.textContent = 'Enter VR';
-                    }, { once: true });
-                } else {
-                     button.textContent = 'Enter VR';
-                }
-            }
-
+            // VR Button
             if ('xr' in navigator) {
-                const vrButton = document.createElement('button');
-                vrButton.id = 'VRButton'; // Keep ID for compatibility
-
                 navigator.xr.isSessionSupported('immersive-vr').then((supported) => {
                     if (supported) {
-                        vrButton.style.display = '';
+                        const vrButton = document.createElement('button');
+                        vrButton.id = 'VRButton';
                         vrButton.addEventListener('click', () => {
                             const currentSession = renderer.xr.getSession();
                             if (currentSession) {
@@ -598,19 +592,9 @@
                             }
                         });
                         webxrButtonsContainer.appendChild(vrButton);
-                    } else {
-                        // VR not supported, maybe show a message or just don't show the button
+                        updateEnterExitButtons(); // Set initial text
                     }
                 });
-
-                // Update button text based on session status
-                renderer.xr.addEventListener('sessionstart', (event) => updateButtonState(vrButton, event.session));
-                renderer.xr.addEventListener('sessionend', () => updateButtonState(vrButton, null));
-
-                updateButtonState(vrButton, renderer.xr.getSession());
-
-            } else {
-                // WebXR not available
             }
 
             let originalModelInfo = null;
