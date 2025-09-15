@@ -108,10 +108,24 @@ export class Hand {
         }
 
         this.handModel.visible = false;
+
+        // After the hand is fully constructed, check if a model already exists in the scene.
+        // This handles the race condition where a model is loaded before the hands are initialized.
+        // We defer this with a microtask to ensure the hand has been added to the scene graph.
+        Promise.resolve().then(() => {
+            const scene = this.handModel.parent;
+            if (scene) {
+                const existingModel = scene.getObjectByName('user_model');
+                if (existingModel) {
+                    this.setTargetModel(existingModel);
+                }
+            }
+        });
     }
 
     setTargetModel(model) {
         this.targetModel = model;
+        console.log(`Hand (${this.handedness}) locked on target model:`, model.name);
     }
 
     /**
