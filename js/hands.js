@@ -185,10 +185,11 @@ export class Hand {
             for (const boneName in this.bones) {
                 if (boneName.startsWith('wrist-thumb') || boneName.startsWith('thumb-')) {
                     const boneMesh = this.bones[boneName];
-                    if (boneMesh && boneMesh.visible) {
+                    if (boneMesh) {
                         const pos = boneMesh.position;
                         const len = boneMesh.scale.y;
-                        cylinderLogs.push(`  ${boneName}: pos: {x: ${pos.x.toFixed(4)}, y: ${pos.y.toFixed(4)}, z: ${pos.z.toFixed(4)}}, len: ${len.toFixed(4)}`);
+                        const vis = boneMesh.visible;
+                        cylinderLogs.push(`  ${boneName}: vis: ${vis}, pos: {x: ${pos.x.toFixed(4)}, y: ${pos.y.toFixed(4)}, z: ${pos.z.toFixed(4)}}, len: ${len.toFixed(4)}`);
                     }
                 }
             }
