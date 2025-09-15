@@ -521,6 +521,7 @@
 
             const canvas = document.querySelector('#c');
             const renderer = new THREE.WebGLRenderer({canvas, antialias: settings.antialias, alpha: true});
+            renderer.outputColorSpace = THREE.SRGBColorSpace;
             renderer.xr.enabled = true;
 
             // Set a reference space type that is compatible with most AR devices.
@@ -900,6 +901,7 @@
                 const onLoad = (result) => {
                     if (imageExtensions.includes(extension)) {
                         result.mapping = THREE.EquirectangularReflectionMapping;
+                        result.colorSpace = THREE.SRGBColorSpace;
                         scene.background = result;
                         scene.environment = result;
                         currentBackground = result; // Update current background
@@ -1116,6 +1118,7 @@
                 const url = URL.createObjectURL(file);
                 textureLoader.load(url, (texture) => {
                     URL.revokeObjectURL(url); // Revoke URL after loading
+                    texture.colorSpace = THREE.SRGBColorSpace;
                     const aspectRatio = texture.image.width / texture.image.height;
                     const imageHeight = 2; // Arbitrary height
                     const imageWidth = imageHeight * aspectRatio;
