@@ -14,7 +14,7 @@ function logToServer(message) {
 }
 
 // Constants for hand visualization
-const JOINT_RADIUS = 0.00345; // Increased by 15%
+const JOINT_RADIUS = 0.00414; // Increased by another 20%
 const BONE_RADIUS = 0.004;
 
 // Defines the names of the joints in the hand, in the order specified by the WebXR API
@@ -158,6 +158,17 @@ export class Hand {
                                 this.raycaster.set(lastPosition, direction);
                                 this.raycaster.far = distance;
                                 const intersects = this.raycaster.intersectObject(this.targetModel, true);
+
+                                if (jointName === 'index-finger-tip') {
+                                    console.log({
+                                        joint: jointName,
+                                        from: lastPosition.toArray(),
+                                        to: desiredPosition.toArray(),
+                                        direction: direction.toArray(),
+                                        distance: distance,
+                                        intersects: intersects.length
+                                    });
+                                }
 
                                 if (intersects.length > 0) {
                                     // Collision detected. Stop at the intersection point.
