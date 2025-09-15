@@ -1051,6 +1051,14 @@
                 }
                 scene.add(modelGroup);
 
+                // Pass the newly loaded model to the hands for collision detection
+                if (leftHand) {
+                    leftHand.setTargetModel(modelGroup);
+                }
+                if (rightHand) {
+                    rightHand.setTargetModel(modelGroup);
+                }
+
                 // center and frame the new model group
                 const newBox = new THREE.Box3().setFromObject(modelGroup);
                 const boxSize = newBox.getSize(new THREE.Vector3()).length();

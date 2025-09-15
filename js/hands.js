@@ -58,13 +58,17 @@ export class Hand {
     constructor(handModel, handedness) {
         this.handModel = handModel;
         this.handedness = handedness;
-        this.joints = {};
+        this.joints = {}; // This will now store { mesh, velocity, lastPosition }
         this.bones = {};
+        this.targetModel = null;
+        this.raycaster = new THREE.Raycaster();
 
         const jointMaterial = new THREE.MeshStandardMaterial({
             color: 0x00bbaa,
             metalness: 0.1,
-            roughness: 0.5
+            roughness: 0.5,
+            transparent: true,
+            opacity: 0.8
         });
         const boneMaterial = new THREE.MeshStandardMaterial({
             color: 0xcccccc,
@@ -74,13 +78,18 @@ export class Hand {
 
         // Create joint meshes
         for (const jointName of XR_HAND_JOINTS) {
-            const joint = new THREE.Mesh(
+            const jointMesh = new THREE.Mesh(
                 new THREE.SphereGeometry(JOINT_RADIUS, 10, 10),
-                jointMaterial
+                jointMaterial.clone() // Clone material to change color individually
             );
-            joint.name = jointName;
-            this.joints[jointName] = joint;
-            this.handModel.add(joint);
+            jointMesh.name = jointName;
+            this.joints[jointName] = {
+                mesh: jointMesh,
+                velocity: new THREE.Vector3(),
+                lastPosition: new THREE.Vector3(),
+                isColliding: false
+            };
+            this.handModel.add(jointMesh);
         }
 
         // Create bone meshes
@@ -101,6 +110,10 @@ export class Hand {
         this.handModel.visible = false;
     }
 
+    setTargetModel(model) {
+        this.targetModel = model;
+    }
+
     /**
      * Updates the positions of the hand's joints and bones based on the XRFrame data.
      * @param {XRFrame} xrFrame - The current XR frame.
@@ -119,14 +132,45 @@ export class Hand {
             this.handModel.visible = true;
             // Update the visibility and pose of each joint
             for (const jointName in this.joints) {
-                const jointMesh = this.joints[jointName];
+                const jointData = this.joints[jointName];
+                const jointMesh = jointData.mesh;
                 const xrJoint = handInputSource.get(jointName);
+
                 if (xrJoint) {
                     const pose = xrFrame.getJointPose(xrJoint, referenceSpace);
                     if (pose) {
                         jointMesh.matrix.fromArray(pose.transform.matrix);
                         jointMesh.matrixAutoUpdate = false;
                         jointMesh.visible = true;
+
+                        const currentPosition = new THREE.Vector3().setFromMatrixPosition(jointMesh.matrix);
+
+                        // Calculate velocity
+                        if (!jointData.lastPosition.equals(new THREE.Vector3(0, 0, 0))) {
+                            jointData.velocity.subVectors(currentPosition, jointData.lastPosition);
+                        }
+
+                        // Raycasting for collision detection
+                        if (this.targetModel && jointData.velocity.length() > 0.0001) {
+                            this.raycaster.set(jointData.lastPosition, jointData.velocity.clone().normalize());
+                            this.raycaster.far = jointData.velocity.length();
+
+                            const intersects = this.raycaster.intersectObject(this.targetModel, true);
+
+                            if (intersects.length > 0) {
+                                jointData.isColliding = true;
+                                jointData.mesh.material.color.set(0xff0000); // Red for collision
+                            } else {
+                                jointData.isColliding = false;
+                                jointData.mesh.material.color.set(0x00bbaa); // Original color
+                            }
+                        } else {
+                             jointData.isColliding = false;
+                             jointData.mesh.material.color.set(0x00bbaa); // Original color
+                        }
+
+                        jointData.lastPosition.copy(currentPosition);
+
                     } else {
                         jointMesh.visible = false;
                     }
@@ -142,8 +186,8 @@ export class Hand {
                     const boneName = `${startJointName}-${endJointName}`;
                     const boneMesh = this.bones[boneName];
 
-                    const startJoint = this.joints[startJointName];
-                    const endJoint = this.joints[endJointName];
+                    const startJoint = this.joints[startJointName].mesh;
+                    const endJoint = this.joints[endJointName].mesh;
 
                     if (startJoint && endJoint && startJoint.visible && endJoint.visible) {
                         const startPos = new THREE.Vector3().setFromMatrixPosition(startJoint.matrix);
