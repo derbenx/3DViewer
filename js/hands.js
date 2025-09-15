@@ -27,6 +27,15 @@ const XR_HAND_JOINTS = [
   "pinky-finger-metacarpal", "pinky-finger-phalanx-proximal", "pinky-finger-phalanx-intermediate", "pinky-finger-phalanx-distal", "pinky-finger-tip",
 ];
 
+// Joints to be used for collision detection
+const COLLISION_JOINTS = [
+  "thumb-tip", "thumb-phalanx-distal", "thumb-phalanx-proximal",
+  "index-finger-tip", "index-finger-phalanx-distal", "index-finger-phalanx-intermediate",
+  "middle-finger-tip", "middle-finger-phalanx-distal", "middle-finger-phalanx-intermediate",
+  "ring-finger-tip", "ring-finger-phalanx-distal", "ring-finger-phalanx-intermediate",
+  "pinky-finger-tip", "pinky-finger-phalanx-distal", "pinky-finger-phalanx-intermediate"
+];
+
 // Defines the connections between the joints to form the bones of the hand
 const BONE_CONNECTIONS = {
     "wrist": ["thumb-metacarpal", "index-finger-metacarpal", "middle-finger-metacarpal", "ring-finger-metacarpal", "pinky-finger-metacarpal"],
@@ -125,7 +134,6 @@ export class Hand {
 
     setTargetModel(model) {
         this.targetModel = model;
-        console.log(`Hand (${this.handedness}) locked on target model:`, model.name);
     }
 
     /**
@@ -162,7 +170,8 @@ export class Hand {
                         let finalPosition = desiredPosition;
                         let isColliding = false;
 
-                        if (this.targetModel) {
+                        // Perform collision detection only for specified joints
+                        if (this.targetModel && COLLISION_JOINTS.includes(jointName)) {
                             const lastPosition = jointData.lastPosition;
                             const direction = new THREE.Vector3().subVectors(desiredPosition, lastPosition);
                             const distance = direction.length();
@@ -172,17 +181,6 @@ export class Hand {
                                 this.raycaster.set(lastPosition, direction);
                                 this.raycaster.far = distance;
                                 const intersects = this.raycaster.intersectObject(this.targetModel, true);
-
-                                if (jointName === 'index-finger-tip') {
-                                    console.log({
-                                        joint: jointName,
-                                        from: lastPosition.toArray(),
-                                        to: desiredPosition.toArray(),
-                                        direction: direction.toArray(),
-                                        distance: distance,
-                                        intersects: intersects.length
-                                    });
-                                }
 
                                 if (intersects.length > 0) {
                                     // Collision detected. Stop at the intersection point.
