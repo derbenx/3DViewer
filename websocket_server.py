@@ -3,6 +3,8 @@
 import asyncio
 import websockets
 import json
+import ssl
+import pathlib
 
 # A set to store all connected WebSocket clients
 CONNECTED_CLIENTS = set()
@@ -31,9 +33,30 @@ async def main():
     """
     Start the WebSocket server.
     """
+    # --- SSL Configuration ---
+    # The server will try to start securely if cert.pem and key.pem are found in the 'certs' directory.
+    # Otherwise, it will fall back to a non-secure server.
+    ssl_context = None
+    cert_path = pathlib.Path(__file__).parent / "certs"
+    cert_file = cert_path / "cert.pem"
+    key_file = cert_path / "key.pem"
+
+    try:
+        ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+        ssl_context.load_cert_chain(cert_file, key_file)
+        print("SSL certificates found. Starting secure WebSocket server (wss://).")
+    except FileNotFoundError:
+        print("SSL certificates not found in 'certs' directory. Starting non-secure WebSocket server (ws://).")
+    except Exception as e:
+        print(f"Error loading SSL certificates: {e}")
+        print("Falling back to non-secure WebSocket server (ws://).")
+
     # The server will listen on all available network interfaces
-    async with websockets.serve(handler, "0.0.0.0", 8080):
-        print("WebSocket server started on port 8080")
+    async with websockets.serve(handler, "0.0.0.0", 8080, ssl=ssl_context):
+        if ssl_context:
+            print("Secure WebSocket server started on port 8080")
+        else:
+            print("WebSocket server started on port 8080")
         await asyncio.Future()  # Run forever
 
 if __name__ == "__main__":

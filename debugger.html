@@ -16,11 +16,12 @@
 
     <script>
         const dataElement = document.getElementById('data');
+        const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
         const wsHost = window.location.hostname || 'localhost';
-        const ws = new WebSocket(`ws://${wsHost}:8080`);
+        const ws = new WebSocket(`${wsProtocol}//${wsHost}:8080`);
 
         ws.onopen = () => {
-            console.log(`Connected to WebSocket server at ws://${wsHost}:8080`);
+            console.log(`Connected to WebSocket server at ${wsProtocol}//${wsHost}:8080`);
             document.querySelector('p').textContent = 'Connected. Waiting for data...';
         };
 

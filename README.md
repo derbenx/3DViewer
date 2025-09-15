@@ -4,35 +4,41 @@ This project is a WebXR application with a remote debugging tool that allows you
 
 ## How to Run
 
-### 1. Serve the Application Files
+### 1. Host the Application Files
 
-You need to serve the root directory using a local web server. If you have Python installed, you can run this command from the project's root directory:
+Serve the project files using your existing web server.
 
-```bash
-python -m http.server
-```
+### 2. Run the WebSocket Relay Server
 
-Then, open `http://localhost:8000` (or the appropriate address for your webserver) in your browser.
+The remote debugger requires a Python WebSocket server to be running. The server can run in two modes: secure (`wss://`) or non-secure (`ws://`).
 
-### 2. Run the WebSocket Server
+#### For a Secure (WSS) Server (Recommended for HTTPS pages)
 
-The remote debugger requires a Python WebSocket server to be running in the background.
+1.  Place your SSL certificate and private key in the `certs/` directory.
+    -   The certificate file must be named `cert.pem`.
+    -   The private key file must be named `key.pem`.
+2.  The server will automatically detect these files and start in secure mode.
 
-First, you may need to install the `websockets` library. You can do this using pip:
+#### For a Non-Secure (WS) Server (For local HTTP pages)
+
+If no certificate and key are found in the `certs/` directory, the server will automatically start in non-secure mode.
+
+#### Installation and Execution
+
+First, you may need to install the `websockets` library:
 ```bash
 pip install websockets
 ```
 
-Then, start the server by running the following command from the project's root directory:
+Then, start the relay server. You can do this by running the provided script from the project's root directory. You may need to make it executable first (`chmod +x runserver.sh`).
 ```bash
-python websocket_server.py
+./runserver.sh
 ```
-
-The server will be running on `ws://<your-server-address>:8080`.
+This will start the WebSocket server. To stop it, press `Ctrl+C` in the same terminal, or run `./stopserver.sh` from another terminal.
 
 ### 3. Use the Debugger
 
-1.  Open the main application, for example: `http://your-subdomain.your-domain.com/index.html`
-2.  Open the debugger client in a separate tab, for example: `http://your-subdomain.your-domain.com/debugger.html`
+1.  Open the main application, for example: `https://your-subdomain.your-domain.com/index.html`
+2.  Open the debugger client in a separate tab, for example: `https://your-subdomain.your-domain.com/debugger.html`
 3.  In the main application, enter an AR or VR session with hand tracking enabled.
 4.  You should see the live hand tracking data appearing in the debugger window.

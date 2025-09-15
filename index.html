@@ -312,10 +312,11 @@
         let leftHand, rightHand;
 
         function main() {
+            const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
             const wsHost = window.location.hostname || 'localhost';
-            const websocket = new WebSocket(`ws://${wsHost}:8080`);
+            const websocket = new WebSocket(`${wsProtocol}//${wsHost}:8080`);
 
-            websocket.onopen = () => console.log(`WebSocket connection established to ws://${wsHost}:8080`);
+            websocket.onopen = () => console.log(`WebSocket connection established to ${wsProtocol}//${wsHost}:8080`);
             websocket.onclose = () => console.log('WebSocket connection closed');
             websocket.onerror = (error) => console.error('WebSocket error:', error);
 
