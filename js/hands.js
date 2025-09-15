@@ -62,6 +62,7 @@ export class Hand {
         this.bones = {};
         this.targetModel = null;
         this.raycaster = new THREE.Raycaster();
+        this._tempMatrix = new THREE.Matrix4(); // Re-usable matrix
 
         const jointMaterial = new THREE.MeshStandardMaterial({
             color: 0x00bbaa,
@@ -141,7 +142,10 @@ export class Hand {
                     const pose = xrFrame.getJointPose(xrJoint, referenceSpace);
                     // Add a check for the matrix itself to prevent crashes on intermittent tracking loss
                     if (pose && pose.transform && pose.transform.matrix) {
-                        const currentPosition = new THREE.Vector3().setFromMatrixPosition(pose.transform.matrix);
+                        // The XR pose matrix is a Float32Array, not a THREE.Matrix4.
+                        // We must first load it into a THREE.Matrix4 to use three.js vector functions.
+                        this._tempMatrix.fromArray(pose.transform.matrix);
+                        const currentPosition = new THREE.Vector3().setFromMatrixPosition(this._tempMatrix);
 
                         // --- Collision Detection ---
                         let wasColliding = jointData.isColliding;
@@ -232,9 +236,9 @@ export class Hand {
                 let sphereLogs = [];
                 for (const jointName of XR_HAND_JOINTS) {
                     if (jointName === 'wrist' || jointName.startsWith('thumb-')) {
-                        const jointMesh = this.joints[jointName];
-                        if (jointMesh && jointMesh.visible) {
-                            const pos = new THREE.Vector3().setFromMatrixPosition(jointMesh.matrix);
+                        const jointData = this.joints[jointName];
+                        if (jointData && jointData.mesh.visible) {
+                            const pos = new THREE.Vector3().setFromMatrixPosition(jointData.mesh.matrix);
                             sphereLogs.push(`  ${jointName}: {x: ${pos.x.toFixed(4)}, y: ${pos.y.toFixed(4)}, z: ${pos.z.toFixed(4)}}`);
                         }
                     }
