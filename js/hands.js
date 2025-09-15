@@ -87,7 +87,8 @@ export class Hand {
                 mesh: jointMesh,
                 velocity: new THREE.Vector3(),
                 lastPosition: new THREE.Vector3(),
-                isColliding: false
+                isColliding: false,
+                collisionPoint: new THREE.Vector3()
             };
             this.handModel.add(jointMesh);
         }
@@ -139,37 +140,51 @@ export class Hand {
                 if (xrJoint) {
                     const pose = xrFrame.getJointPose(xrJoint, referenceSpace);
                     if (pose) {
-                        jointMesh.matrix.fromArray(pose.transform.matrix);
+                        const currentPosition = new THREE.Vector3().setFromMatrixPosition(pose.transform.matrix);
+
+                        // --- Collision Detection ---
+                        let wasColliding = jointData.isColliding;
+                        jointData.isColliding = false; // Assume no collision until proven otherwise
+
+                        if (this.targetModel) {
+                            // The ray should start from the real hand position and go towards the last rendered position
+                            const lastRenderedPosition = jointData.mesh.position.clone();
+                            const direction = new THREE.Vector3().subVectors(lastRenderedPosition, currentPosition).normalize();
+                            const distance = currentPosition.distanceTo(lastRenderedPosition);
+
+                            if (distance > 0.0001) {
+                                this.raycaster.set(currentPosition, direction);
+                                this.raycaster.far = distance;
+                                const intersects = this.raycaster.intersectObject(this.targetModel, true);
+
+                                if (intersects.length > 0) {
+                                    // We have a collision. The "real" hand is inside the model.
+                                    jointData.isColliding = true;
+                                    // If we weren't colliding before, this is a new collision. Store the point.
+                                    if (!wasColliding) {
+                                        jointData.collisionPoint.copy(intersects[0].point);
+                                    }
+                                }
+                            }
+                        }
+
+                        // --- Update Joint Position ---
+                        if (jointData.isColliding) {
+                            // If colliding, lock the joint to the collision point.
+                            jointMesh.position.copy(jointData.collisionPoint);
+                            jointMesh.material.color.set(0xff0000); // Red
+                        } else {
+                            // If not colliding, use the real hand position.
+                            jointMesh.position.copy(currentPosition);
+                            jointMesh.material.color.set(0x00bbaa); // Original color
+                        }
+
+                        // We no longer directly use the matrix from the pose, as we're overriding the position.
+                        // We set the matrix manually from the position we decided on.
+                        // For simplicity, we'll just manage position and not worry about rotation for the collision sphere.
+                        jointMesh.matrix.setPosition(jointMesh.position);
                         jointMesh.matrixAutoUpdate = false;
                         jointMesh.visible = true;
-
-                        const currentPosition = new THREE.Vector3().setFromMatrixPosition(jointMesh.matrix);
-
-                        // Calculate velocity
-                        if (!jointData.lastPosition.equals(new THREE.Vector3(0, 0, 0))) {
-                            jointData.velocity.subVectors(currentPosition, jointData.lastPosition);
-                        }
-
-                        // Raycasting for collision detection
-                        if (this.targetModel && jointData.velocity.length() > 0.0001) {
-                            this.raycaster.set(jointData.lastPosition, jointData.velocity.clone().normalize());
-                            this.raycaster.far = jointData.velocity.length();
-
-                            const intersects = this.raycaster.intersectObject(this.targetModel, true);
-
-                            if (intersects.length > 0) {
-                                jointData.isColliding = true;
-                                jointData.mesh.material.color.set(0xff0000); // Red for collision
-                            } else {
-                                jointData.isColliding = false;
-                                jointData.mesh.material.color.set(0x00bbaa); // Original color
-                            }
-                        } else {
-                             jointData.isColliding = false;
-                             jointData.mesh.material.color.set(0x00bbaa); // Original color
-                        }
-
-                        jointData.lastPosition.copy(currentPosition);
 
                     } else {
                         jointMesh.visible = false;
