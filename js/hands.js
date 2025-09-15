@@ -1,5 +1,15 @@
 import * as THREE from 'three';
 
+function logToServer(message) {
+    fetch('log_debug.php', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'text/plain',
+        },
+        body: message,
+    }).catch(error => console.error('Error logging to server:', error));
+}
+
 // Constants for hand visualization
 const JOINT_RADIUS = 0.003;
 const BONE_RADIUS = 0.004;
@@ -151,6 +161,46 @@ export class Hand {
                     boneMesh.visible = false;
                 }
             }
+
+            // --- START DEBUG LOGGING ---
+            const timestamp = new Date().toISOString();
+            let logParts = [timestamp];
+
+            let sphereLogs = [];
+            for (const jointName of XR_HAND_JOINTS) {
+                if (jointName === 'wrist' || jointName.startsWith('thumb-')) {
+                    const jointMesh = this.joints[jointName];
+                    if (jointMesh && jointMesh.visible) {
+                        const pos = new THREE.Vector3().setFromMatrixPosition(jointMesh.matrix);
+                        sphereLogs.push(`  ${jointName}: {x: ${pos.x.toFixed(4)}, y: ${pos.y.toFixed(4)}, z: ${pos.z.toFixed(4)}}`);
+                    }
+                }
+            }
+            if (sphereLogs.length > 0) {
+                logParts.push("THUMB SPHERES:");
+                logParts.push(...sphereLogs);
+            }
+
+            let cylinderLogs = [];
+            for (const boneName in this.bones) {
+                if (boneName.startsWith('wrist-thumb') || boneName.startsWith('thumb-')) {
+                    const boneMesh = this.bones[boneName];
+                    if (boneMesh && boneMesh.visible) {
+                        const pos = boneMesh.position;
+                        const len = boneMesh.scale.y;
+                        cylinderLogs.push(`  ${boneName}: pos: {x: ${pos.x.toFixed(4)}, y: ${pos.y.toFixed(4)}, z: ${pos.z.toFixed(4)}}, len: ${len.toFixed(4)}`);
+                    }
+                }
+            }
+            if (cylinderLogs.length > 0) {
+                logParts.push("THUMB CYLINDERS:");
+                logParts.push(...cylinderLogs);
+            }
+
+            if (sphereLogs.length > 0) {
+                logToServer(logParts.join('\n'));
+            }
+            // --- END DEBUG LOGGING ---
         } else {
             this.handModel.visible = false;
         }
