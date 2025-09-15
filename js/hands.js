@@ -1,6 +1,9 @@
 import * as THREE from 'three';
 
+const logDebug = false; // Set to true to enable logging
+
 function logToServer(message) {
+    if (!logDebug) return;
     fetch('log_debug.php', {
         method: 'POST',
         headers: {
@@ -133,75 +136,73 @@ export class Hand {
             }
 
             // Update the visibility, scale, and orientation of each bone
-            for (const boneName in this.bones) {
-                const boneMesh = this.bones[boneName];
-                const [startJointName, endJointName] = boneName.split('-');
-
-                const startJoint = this.joints[startJointName];
-                const endJoint = this.joints[endJointName];
-
-                if (startJoint && endJoint && startJoint.visible && endJoint.visible) {
-                    const startPos = new THREE.Vector3();
-                    const endPos = new THREE.Vector3();
-
-                    startJoint.matrix.decompose(startPos, new THREE.Quaternion(), new THREE.Vector3());
-                    endJoint.matrix.decompose(endPos, new THREE.Quaternion(), new THREE.Vector3());
-
-                    const distance = startPos.distanceTo(endPos);
-                    boneMesh.scale.y = distance;
-
-                    // --- DEBUG: Move to origin and disable rotation ---
-                    boneMesh.position.set(0, 0, 0);
-                    // boneMesh.lookAt(endPos);
-                    // boneMesh.rotateX(Math.PI / 2);
-                    // --- END DEBUG ---
-
-                    boneMesh.visible = true;
-                } else {
-                    boneMesh.visible = false;
-                }
-            }
-
-            // --- START DEBUG LOGGING ---
-            const timestamp = new Date().toISOString();
-            let logParts = [timestamp];
-
-            let sphereLogs = [];
-            for (const jointName of XR_HAND_JOINTS) {
-                if (jointName === 'wrist' || jointName.startsWith('thumb-')) {
-                    const jointMesh = this.joints[jointName];
-                    if (jointMesh && jointMesh.visible) {
-                        const pos = new THREE.Vector3().setFromMatrixPosition(jointMesh.matrix);
-                        sphereLogs.push(`  ${jointName}: {x: ${pos.x.toFixed(4)}, y: ${pos.y.toFixed(4)}, z: ${pos.z.toFixed(4)}}`);
-                    }
-                }
-            }
-            if (sphereLogs.length > 0) {
-                logParts.push("THUMB SPHERES:");
-                logParts.push(...sphereLogs);
-            }
-
-            let cylinderLogs = [];
-            for (const boneName in this.bones) {
-                if (boneName.startsWith('wrist-thumb') || boneName.startsWith('thumb-')) {
+            for (const startJointName in BONE_CONNECTIONS) {
+                const endJointNames = BONE_CONNECTIONS[startJointName];
+                for (const endJointName of endJointNames) {
+                    const boneName = `${startJointName}-${endJointName}`;
                     const boneMesh = this.bones[boneName];
-                    if (boneMesh) {
-                        const pos = boneMesh.position;
-                        const len = boneMesh.scale.y;
-                        const vis = boneMesh.visible;
-                        cylinderLogs.push(`  ${boneName}: vis: ${vis}, pos: {x: ${pos.x.toFixed(4)}, y: ${pos.y.toFixed(4)}, z: ${pos.z.toFixed(4)}}, len: ${len.toFixed(4)}`);
+
+                    const startJoint = this.joints[startJointName];
+                    const endJoint = this.joints[endJointName];
+
+                    if (startJoint && endJoint && startJoint.visible && endJoint.visible) {
+                        const startPos = new THREE.Vector3().setFromMatrixPosition(startJoint.matrix);
+                        const endPos = new THREE.Vector3().setFromMatrixPosition(endJoint.matrix);
+
+                        const distance = startPos.distanceTo(endPos);
+                        boneMesh.scale.y = distance;
+
+                        boneMesh.position.lerpVectors(startPos, endPos, 0.5);
+
+                        const up = new THREE.Vector3(0, 1, 0);
+                        const direction = new THREE.Vector3().subVectors(endPos, startPos).normalize();
+                        const quaternion = new THREE.Quaternion().setFromUnitVectors(up, direction);
+                        boneMesh.setRotationFromQuaternion(quaternion);
+
+                        boneMesh.visible = true;
+                    } else {
+                        boneMesh.visible = false;
                     }
                 }
             }
-            if (cylinderLogs.length > 0) {
-                logParts.push("THUMB CYLINDERS:");
-                logParts.push(...cylinderLogs);
-            }
 
-            if (sphereLogs.length > 0) {
-                logToServer(logParts.join('\n'));
+            if (logDebug) {
+                const timestamp = new Date().toISOString();
+                let logParts = [timestamp];
+                let sphereLogs = [];
+                for (const jointName of XR_HAND_JOINTS) {
+                    if (jointName === 'wrist' || jointName.startsWith('thumb-')) {
+                        const jointMesh = this.joints[jointName];
+                        if (jointMesh && jointMesh.visible) {
+                            const pos = new THREE.Vector3().setFromMatrixPosition(jointMesh.matrix);
+                            sphereLogs.push(`  ${jointName}: {x: ${pos.x.toFixed(4)}, y: ${pos.y.toFixed(4)}, z: ${pos.z.toFixed(4)}}`);
+                        }
+                    }
+                }
+                if (sphereLogs.length > 0) {
+                    logParts.push("THUMB SPHERES:");
+                    logParts.push(...sphereLogs);
+                }
+                let cylinderLogs = [];
+                for (const boneName in this.bones) {
+                    if (boneName.startsWith('wrist-thumb') || boneName.startsWith('thumb-')) {
+                        const boneMesh = this.bones[boneName];
+                        if (boneMesh) {
+                            const pos = boneMesh.position;
+                            const len = boneMesh.scale.y;
+                            const vis = boneMesh.visible;
+                            cylinderLogs.push(`  ${boneName}: vis: ${vis}, pos: {x: ${pos.x.toFixed(4)}, y: ${pos.y.toFixed(4)}, z: ${pos.z.toFixed(4)}}, len: ${len.toFixed(4)}`);
+                        }
+                    }
+                }
+                if (cylinderLogs.length > 0) {
+                    logParts.push("THUMB CYLINDERS:");
+                    logParts.push(...cylinderLogs);
+                }
+                if (sphereLogs.length > 0) {
+                    logToServer(logParts.join('\n'));
+                }
             }
-            // --- END DEBUG LOGGING ---
         } else {
             this.handModel.visible = false;
         }
