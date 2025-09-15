@@ -14,7 +14,7 @@ function logToServer(message) {
 }
 
 // Constants for hand visualization
-const JOINT_RADIUS = 0.003;
+const JOINT_RADIUS = 0.00345; // Increased by 15%
 const BONE_RADIUS = 0.004;
 
 // Defines the names of the joints in the hand, in the order specified by the WebXR API
@@ -86,10 +86,8 @@ export class Hand {
             jointMesh.name = jointName;
             this.joints[jointName] = {
                 mesh: jointMesh,
-                velocity: new THREE.Vector3(),
+                // lastPosition is the last valid, rendered position.
                 lastPosition: new THREE.Vector3(),
-                isColliding: false,
-                collisionPoint: new THREE.Vector3()
             };
             this.handModel.add(jointMesh);
         }
@@ -145,49 +143,37 @@ export class Hand {
                         // The XR pose matrix is a Float32Array, not a THREE.Matrix4.
                         // We must first load it into a THREE.Matrix4 to use three.js vector functions.
                         this._tempMatrix.fromArray(pose.transform.matrix);
-                        const currentPosition = new THREE.Vector3().setFromMatrixPosition(this._tempMatrix);
+                        const desiredPosition = new THREE.Vector3().setFromMatrixPosition(this._tempMatrix);
 
-                        // --- Collision Detection ---
-                        let wasColliding = jointData.isColliding;
-                        jointData.isColliding = false; // Assume no collision until proven otherwise
+                        let finalPosition = desiredPosition;
+                        let isColliding = false;
 
                         if (this.targetModel) {
-                            // The ray should start from the real hand position and go towards the last rendered position
-                            const lastRenderedPosition = jointData.mesh.position.clone();
-                            const direction = new THREE.Vector3().subVectors(lastRenderedPosition, currentPosition).normalize();
-                            const distance = currentPosition.distanceTo(lastRenderedPosition);
+                            const lastPosition = jointData.lastPosition;
+                            const direction = new THREE.Vector3().subVectors(desiredPosition, lastPosition);
+                            const distance = direction.length();
 
                             if (distance > 0.0001) {
-                                this.raycaster.set(currentPosition, direction);
+                                direction.normalize();
+                                this.raycaster.set(lastPosition, direction);
                                 this.raycaster.far = distance;
                                 const intersects = this.raycaster.intersectObject(this.targetModel, true);
 
                                 if (intersects.length > 0) {
-                                    // We have a collision. The "real" hand is inside the model.
-                                    jointData.isColliding = true;
-                                    // If we weren't colliding before, this is a new collision. Store the point.
-                                    if (!wasColliding) {
-                                        jointData.collisionPoint.copy(intersects[0].point);
-                                    }
+                                    // Collision detected. Stop at the intersection point.
+                                    finalPosition = intersects[0].point;
+                                    isColliding = true;
                                 }
                             }
                         }
 
-                        // --- Update Joint Position ---
-                        if (jointData.isColliding) {
-                            // If colliding, lock the joint to the collision point.
-                            jointMesh.position.copy(jointData.collisionPoint);
-                            jointMesh.material.color.set(0xff0000); // Red
-                        } else {
-                            // If not colliding, use the real hand position.
-                            jointMesh.position.copy(currentPosition);
-                            jointMesh.material.color.set(0x00bbaa); // Original color
-                        }
+                        // --- Update Joint Position and Color ---
+                        jointMesh.position.copy(finalPosition);
+                        jointData.lastPosition.copy(finalPosition); // Update lastPosition for the next frame
+                        jointMesh.material.color.set(isColliding ? 0xff0000 : 0x00bbaa);
 
-                        // We no longer directly use the matrix from the pose, as we're overriding the position.
-                        // We set the matrix manually from the position we decided on.
-                        // For simplicity, we'll just manage position and not worry about rotation for the collision sphere.
-                        jointMesh.matrix.setPosition(jointMesh.position);
+                        // We manually update the matrix from the final position.
+                        jointMesh.matrix.setPosition(finalPosition);
                         jointMesh.matrixAutoUpdate = false;
                         jointMesh.visible = true;
 
