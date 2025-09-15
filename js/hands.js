@@ -139,7 +139,7 @@ export class Hand {
 
                 if (xrJoint) {
                     const pose = xrFrame.getJointPose(xrJoint, referenceSpace);
-                    if (pose) {
+                    if (pose && pose.transform) { // Check for pose and transform
                         const currentPosition = new THREE.Vector3().setFromMatrixPosition(pose.transform.matrix);
 
                         // --- Collision Detection ---

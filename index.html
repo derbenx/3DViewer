@@ -1287,9 +1287,12 @@
                                     // This ensures the same exit logic is used everywhere.
                                     const vrButton = document.getElementById('VRButton');
                                     const arButton = document.getElementById('ARButton');
-                                    if (vrButton && vrButton.textContent.includes('EXIT')) {
+                                    console.log("Exit button pressed. VR button text:", vrButton?.textContent, "AR button text:", arButton?.textContent);
+                                    if (vrButton && vrButton.textContent.includes('Exit')) {
+                                        console.log("Clicking VR button to exit.");
                                         vrButton.click();
-                                    } else if (arButton && arButton.textContent.includes('STOP')) {
+                                    } else if (arButton && arButton.textContent.includes('Exit')) {
+                                        console.log("Clicking AR button to exit.");
                                         arButton.click();
                                     }
                                 }
