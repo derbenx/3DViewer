@@ -34,12 +34,12 @@ async def main():
     Start the WebSocket server.
     """
     # --- SSL Configuration ---
-    # The server will try to start securely if cert.pem and key.pem are found in the 'certs' directory.
+    # The server will try to start securely if the certificate and key files are found in the 'certs' directory.
     # Otherwise, it will fall back to a non-secure server.
     ssl_context = None
     cert_path = pathlib.Path(__file__).parent / "certs"
-    cert_file = cert_path / "cert.pem"
-    key_file = cert_path / "key.pem"
+    cert_file = cert_path / "apache.cert"
+    key_file = cert_path / "apache.key"
 
     try:
         ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)

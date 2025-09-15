@@ -15,8 +15,8 @@ The remote debugger requires a Python WebSocket server to be running. The server
 #### For a Secure (WSS) Server (Recommended for HTTPS pages)
 
 1.  Place your SSL certificate and private key in the `certs/` directory.
-    -   The certificate file must be named `cert.pem`.
-    -   The private key file must be named `key.pem`.
+    -   The certificate file must be named `apache.cert`.
+    -   The private key file must be named `apache.key`.
 2.  The server will automatically detect these files and start in secure mode.
 
 #### For a Non-Secure (WS) Server (For local HTTP pages)
