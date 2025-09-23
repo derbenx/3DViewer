@@ -1,4 +1,4 @@
-const swEnabled = 0;
+const swEnabled = 1;
 
 if (!swEnabled) {
     // --- SERVICE WORKER DISABLED ---
@@ -42,19 +42,26 @@ if (!swEnabled) {
         '/',
         'index.html',
         'version.txt',
+        'js/hand.js',
         'js/three/build/three.module.js',
+        'js/three/build/three.core.js',
         'js/three/examples/jsm/controls/OrbitControls.js',
-        'js/three/examples/jsm/loaders/GLTFLoader.js',
+        'js/three/examples/jsm/curves/NURBSCurve.js',
+        'js/three/examples/jsm/curves/NURBSUtils.js',
+        'js/three/examples/jsm/libs/chevrotain.module.min.js',
+        'js/three/examples/jsm/libs/fflate.module.js',
+        'js/three/examples/jsm/libs/motion-controllers.module.js',
+        'js/three/examples/jsm/loaders/ColladaLoader.js',
         'js/three/examples/jsm/loaders/FBXLoader.js',
+        'js/three/examples/jsm/loaders/GLTFLoader.js',
         'js/three/examples/jsm/loaders/OBJLoader.js',
         'js/three/examples/jsm/loaders/STLLoader.js',
+        'js/three/examples/jsm/loaders/TGALoader.js',
+        'js/three/examples/jsm/loaders/VRMLLoader.js',
+        'js/three/examples/jsm/utils/BufferGeometryUtils.js',
         'js/three/examples/jsm/webxr/VRButton.js',
         'js/three/examples/jsm/webxr/ARButton.js',
-        'js/three/examples/jsm/libs/fflate.module.js',
-        'js/three/examples/jsm/webxr/XRControllerModelFactory.js',
-        'js/three/examples/jsm/libs/motion-controllers.module.js',
-        'js/three/examples/jsm/curves/NURBSCurve.js',
-        'js/three/examples/jsm/curves/NURBSUtils.js'
+        'js/three/examples/jsm/webxr/XRControllerModelFactory.js'
     ];
 
     self.addEventListener('install', event => {
@@ -72,7 +79,7 @@ if (!swEnabled) {
                 }
 
                 const responseText = await versionResponse.text();
-                const expectedKey = '21a0616db67ac894124be948ecdad657327cf42df016f26e66';
+                const expectedKey = 'mom657327cf42df016f26e6621a0616db67ac894124be948ec';
 
                 // 2. Validate the key.
                 if (responseText.trim() !== expectedKey) {
