@@ -37,14 +37,14 @@ if (!swEnabled) {
 } else {
     // --- SERVICE WORKER ENABLED ---
 
-    const CACHE_NAME = 'gltf-viewer-v8';
+    const CACHE_NAME = 'gltf-viewer-v9';
     const PRECACHE_ASSETS = [
         '/',
         'index.html',
+        'manifest.json',
         'version.txt',
-        'js/hand.js',
+        'js/hands.js',
         'js/three/build/three.module.js',
-        'js/three/build/three.core.js',
         'js/three/examples/jsm/controls/OrbitControls.js',
         'js/three/examples/jsm/curves/NURBSCurve.js',
         'js/three/examples/jsm/curves/NURBSUtils.js',
