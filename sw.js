@@ -37,7 +37,8 @@ if (!swEnabled) {
 } else {
     // --- SERVICE WORKER ENABLED ---
 
-    const CACHE_NAME = 'gltf-viewer-v9';
+    const APP_PREFIX = 'gltf-viewer-';
+    const CACHE_NAME = APP_PREFIX + 'v9';
     const PRECACHE_ASSETS = [
         '/',
         'index.html',
@@ -102,8 +103,8 @@ if (!swEnabled) {
             caches.keys().then(cacheNames => {
                 return Promise.all(
                     cacheNames.map(cacheName => {
-                        if (cacheName !== CACHE_NAME) {
-                            console.log('Deleting old cache:', cacheName);
+                        if (cacheName.startsWith(APP_PREFIX) && cacheName !== CACHE_NAME) {
+                            console.log('Deleting old app cache:', cacheName);
                             return caches.delete(cacheName);
                         }
                     })
