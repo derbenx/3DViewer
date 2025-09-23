@@ -38,12 +38,13 @@ if (!swEnabled) {
     // --- SERVICE WORKER ENABLED ---
 
     const APP_PREFIX = 'gltf-viewer-';
-    const CACHE_NAME = APP_PREFIX + 'v9';
+    let CACHE_NAME = APP_PREFIX + 'v-initial'; // Initial cache name, will be updated.
+
     const PRECACHE_ASSETS = [
         '/',
         'index.html',
         'manifest.json',
-        'version.txt',
+        'version.json', // Use version.json
         'js/hands.js',
         'js/three/build/three.module.js',
         'js/three/examples/jsm/controls/OrbitControls.js',
@@ -69,27 +70,25 @@ if (!swEnabled) {
         event.waitUntil(
             (async () => {
                 console.log('Service Worker: Install event in progress.');
-                const cache = await caches.open(CACHE_NAME);
 
-                // 1. Fetch the version file with a cache-busting parameter.
-                const versionRequest = new Request('./version.txt', { cache: 'no-store' });
+                // 1. Fetch version.json to get the dynamic version and key.
+                const versionRequest = new Request('/version.json', { cache: 'no-store' });
                 const versionResponse = await fetch(versionRequest);
-
                 if (!versionResponse.ok) {
-                    throw new Error('Could not fetch version.txt. Aborting installation.');
+                    throw new Error('Could not fetch version.json. Aborting installation.');
                 }
+                const versionData = await versionResponse.json();
 
-                const responseText = await versionResponse.text();
+                // 2. Set the dynamic cache name and validate the key.
+                CACHE_NAME = APP_PREFIX + 'v' + versionData.version;
                 const expectedKey = 'mom657327cf42df016f26e6621a0616db67ac894124be948ec';
-
-                // 2. Validate the key.
-                if (responseText.trim() !== expectedKey) {
-                    throw new Error(`Version key mismatch. Expected ${expectedKey}, got ${responseText.trim()}. Aborting installation.`);
+                if (versionData.key.trim() !== expectedKey) {
+                    throw new Error(`Version key mismatch. Aborting installation.`);
                 }
+                console.log(`Service Worker: Version key validated. Using cache name: ${CACHE_NAME}`);
 
-                console.log('Service Worker: Version key validated. Caching app shell.');
-
-                // 3. If validation passes, cache all assets.
+                // 3. Open the cache and add all assets.
+                const cache = await caches.open(CACHE_NAME);
                 await cache.addAll(PRECACHE_ASSETS);
 
                 console.log('Service Worker: App shell cached successfully.');
@@ -103,13 +102,14 @@ if (!swEnabled) {
             caches.keys().then(cacheNames => {
                 return Promise.all(
                     cacheNames.map(cacheName => {
+                        // Delete any cache that belongs to this app but is not the current one.
                         if (cacheName.startsWith(APP_PREFIX) && cacheName !== CACHE_NAME) {
                             console.log('Deleting old app cache:', cacheName);
                             return caches.delete(cacheName);
                         }
                     })
                 );
-            }).then(() => self.clients.claim()) // Take control of all open clients.
+            }).then(() => self.clients.claim())
         );
     });
 
@@ -118,25 +118,19 @@ if (!swEnabled) {
 
         // Don't cache 3d models or the PHP script.
         if (url.pathname.startsWith('/3d/') || url.pathname.endsWith('get_models.php')) {
-            // Go to network only for these requests.
             return;
         }
 
-        // For navigation requests (e.g., loading the page), use a network-first strategy.
+        // For navigation requests, use Cache-First strategy.
         if (event.request.mode === 'navigate') {
             event.respondWith((async () => {
-                try {
-                    const networkResponse = await fetch(event.request);
-                    // If we get a response, update the cache and return it.
-                    const cache = await caches.open(CACHE_NAME);
-                    cache.put(event.request, networkResponse.clone());
-                    return networkResponse;
-                } catch (error) {
-                    // If the network fails, serve from the cache.
-                    console.log('Network request failed, serving from cache.');
-                    const cache = await caches.open(CACHE_NAME);
-                    return await cache.match(event.request) || await cache.match('/');
+                const cache = await caches.open(CACHE_NAME);
+                const cachedResponse = await cache.match(event.request) || await cache.match('/');
+                if (cachedResponse) {
+                    return cachedResponse;
                 }
+                // If not in cache, this will fail while offline, which is expected for a first visit.
+                return fetch(event.request);
             })());
             return;
         }
@@ -145,12 +139,10 @@ if (!swEnabled) {
         event.respondWith(
             (async () => {
                 const cache = await caches.open(CACHE_NAME);
-                // 1. Try to get the response from the cache.
                 const cachedResponse = await cache.match(event.request);
                 if (cachedResponse) {
                     return cachedResponse;
                 }
-                // 2. If not in cache, fetch from the network, cache it, and return the response.
                 const networkResponse = await fetch(event.request);
                 await cache.put(event.request, networkResponse.clone());
                 return networkResponse;
