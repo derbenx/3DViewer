@@ -239,10 +239,6 @@
                             <label for="antialias-toggle" style="font-size: 14px;">Enable Antialiasing</label>
                         </div>
                         <div>
-                            <input type="checkbox" id="fps-toggle">
-                            <label for="fps-toggle" style="font-size: 14px;">Show FPS</label>
-                        </div>
-                        <div>
                             <input type="checkbox" id="three-point-lighting-toggle">
                             <label for="three-point-lighting-toggle" style="font-size: 14px;">Enable 3-Point Lighting</label>
                         </div>
@@ -307,10 +303,9 @@
                 <hr>
             </div>
             <!-- AGENT_NOTE: Always update this version number when changing files. -->
-            <div id="version-info" style="font-size: 12px; color: #888; position: absolute; bottom: 10px;">Version: 2.8.19</div>
+            <div id="version-info" style="font-size: 12px; color: #888; position: absolute; bottom: 10px;">Version: 2.8.20</div>
         </div>
     </div>
-    <div id="fps-counter" style="position: absolute; top: 10px; right: 10px; color: white; background: rgba(0,0,0,0.5); padding: 5px; font-family: sans-serif; display: none; z-index: 10;"></div>
     <canvas id="c"></canvas>
     <script type="importmap">
         {
@@ -364,7 +359,6 @@
             // --- Settings ---
             const settings = {
                 antialias: JSON.parse(localStorage.getItem('settings.antialias')) ?? true,
-                showFPS: JSON.parse(localStorage.getItem('settings.showFPS')) ?? false,
                 vrBackgroundColor: localStorage.getItem('settings.vrBackgroundColor') ?? '#444444',
                 lightIntensity: JSON.parse(localStorage.getItem('settings.lightIntensity')) ?? 1.0,
                 lightType: localStorage.getItem('settings.lightType') ?? 'Directional',
@@ -398,12 +392,6 @@
                 location.reload();
             });
 
-            const fpsToggle = document.getElementById('fps-toggle');
-            fpsToggle.checked = settings.showFPS;
-            fpsToggle.addEventListener('change', (event) => {
-                localStorage.setItem('settings.showFPS', event.target.checked);
-                location.reload();
-            });
 
             const rSlider = document.getElementById('r-slider');
             const gSlider = document.getElementById('g-slider');
@@ -1204,15 +1192,6 @@
             }
 
             const clock = new THREE.Clock();
-            const fpsCounter = {
-                element: document.getElementById('fps-counter'),
-                frames: 0,
-                lastTime: performance.now()
-            };
-
-            if (settings.showFPS) {
-                fpsCounter.element.style.display = 'block';
-            }
 
 
             function handleControllerInput(timeDelta) {
@@ -1300,14 +1279,6 @@
                     if (rightHand) rightHand.update(frame, referenceSpace);
                 }
 
-                if (settings.showFPS) {
-                    fpsCounter.frames++;
-                    if (time >= fpsCounter.lastTime + 1000) {
-                        fpsCounter.element.textContent = `${fpsCounter.frames} FPS`;
-                        fpsCounter.lastTime = time;
-                        fpsCounter.frames = 0;
-                    }
-                }
 
                 const delta = clock.getDelta();
                 if (mixer) {
