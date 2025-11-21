@@ -1,6 +1,8 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+<link rel="manifest" href="manifest.json" />
+    <meta name="theme-color" content="#000000">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>GLTF Viewer</title>
@@ -200,17 +202,32 @@
         .custom-select-option.selected {
             background-color: #666;
         }
+
+        #conversion-message {
+            display: none;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            z-index: 100;
+            font-size: 18px;
+        }
     </style>
 </head>
 <body>
+    <div id="conversion-message">Converting model, please wait...</div>
     <div id="side-panel" class="visible">
         <button id="panel-toggle-button">☰</button>
         <div id="panel-content">
             <div style="display: flex; gap: 10px; margin-bottom: 15px;">
-                <button id="browse-button" style="flex-grow: 1; padding: 10px; background-color: #444; color: white; border: 1px solid #555; cursor: pointer; font-size: 14px;">Browse</button>
+                <button id="browse-button" style="flex-grow: 1; padding: 10px; background-color: #444; color: white; border: 1px solid #555; cursor: pointer; font-size: 14px;">360 or Model</button>
+                <button id="browse-image-button" style="flex-grow: 1; padding: 10px; background-color: #444; color: white; border: 1px solid #555; cursor: pointer; font-size: 14px;">Flat Image</button>
                 <button id="clear-button" style="padding: 10px; background-color: #666; color: white; border: 1px solid #777; cursor: pointer; font-size: 14px;">Clear</button>
             </div>
-            <input type="file" id="file-input-fallback" accept=".gltf,.glb,.fbx,.obj,.stl,.jpg,.jpeg,.png" style="display: none;" />
             <div id="webxr-buttons"></div>
             <div id="main-controls-container">
                 <hr>
@@ -222,12 +239,12 @@
                             <label for="antialias-toggle" style="font-size: 14px;">Enable Antialiasing</label>
                         </div>
                         <div>
-                            <input type="checkbox" id="fps-toggle">
-                            <label for="fps-toggle" style="font-size: 14px;">Show FPS</label>
-                        </div>
-                        <div>
                             <input type="checkbox" id="three-point-lighting-toggle">
                             <label for="three-point-lighting-toggle" style="font-size: 14px;">Enable 3-Point Lighting</label>
+                        </div>
+                        <div>
+                            <input type="checkbox" id="two-sided-toggle">
+                            <label for="two-sided-toggle" style="font-size: 14px;">Render Two-Sided</label>
                         </div>
                         <div id="three-point-light-controls" style="display: none;">
                              <div style="display: flex; align-items: center; gap: 10px;">
@@ -285,17 +302,18 @@
                 </div>
                 <hr>
             </div>
-            <!-- AGENT_NOTE: Always update this version number when changing files. -->
-            <div id="version-info" style="font-size: 12px; color: #888; position: absolute; bottom: 10px;">Version: 2.5.6</div>
+            <div id="version-info" style="font-size: 12px; color: #888; position: absolute; bottom: 10px;"></div>
         </div>
     </div>
-    <div id="fps-counter" style="position: absolute; top: 10px; right: 10px; color: white; background: rgba(0,0,0,0.5); padding: 5px; font-family: sans-serif; display: none; z-index: 10;"></div>
     <canvas id="c"></canvas>
     <script type="importmap">
         {
             "imports": {
                 "three": "./js/three/build/three.module.js",
-                "three/addons/": "./js/three/examples/jsm/"
+                "three/addons/": "./js/three/examples/jsm/",
+                "@gltf-transform/core": "https://esm.sh/@gltf-transform/core",
+                "@gltf-transform/extensions": "https://esm.sh/@gltf-transform/extensions",
+                "@gltf-transform/functions": "https://esm.sh/@gltf-transform/functions"
             }
         }
     </script>
@@ -303,25 +321,69 @@
         import * as THREE from 'three';
         import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
         import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-        import { VRButton } from 'three/addons/webxr/VRButton.js';
-        import { ARButton } from 'three/addons/webxr/ARButton.js';
         import { XRControllerModelFactory } from 'three/addons/webxr/XRControllerModelFactory.js';
+        import { Hand } from './js/hands.js';
         import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
         import { OBJLoader } from 'three/addons/loaders/OBJLoader.js';
         import { STLLoader } from 'three/addons/loaders/STLLoader.js';
+        import { ColladaLoader } from 'three/addons/loaders/ColladaLoader.js';
+        import { VRMLLoader } from 'three/addons/loaders/VRMLLoader.js';
+        import { WebIO } from '@gltf-transform/core';
+        import { KHRONOS_EXTENSIONS } from '@gltf-transform/extensions';
+        import { metalRough } from '@gltf-transform/functions';
+
+        let leftHand, rightHand;
+        function modelNeedsConversion(buffer) {
+            const textDecoder = new TextDecoder();
+            let json;
+            try {
+                // Check for binary GLB header
+                if (textDecoder.decode(new Uint8Array(buffer, 0, 4)) === 'glTF') {
+                    const dataView = new DataView(buffer);
+                    const jsonChunkLength = dataView.getUint32(12, true);
+                    const jsonChunk = new Uint8Array(buffer, 20, jsonChunkLength);
+                    json = JSON.parse(textDecoder.decode(jsonChunk));
+                } else {
+                    json = JSON.parse(textDecoder.decode(buffer));
+                }
+                return json.extensionsUsed && json.extensionsUsed.includes('KHR_materials_pbrSpecularGlossiness');
+            } catch (e) {
+                console.error('Error checking for glTF extension:', e);
+                return false;
+            }
+        }
 
         function main() {
+            let mixer;
             // --- Settings ---
             const settings = {
                 antialias: JSON.parse(localStorage.getItem('settings.antialias')) ?? true,
-                showFPS: JSON.parse(localStorage.getItem('settings.showFPS')) ?? false,
                 vrBackgroundColor: localStorage.getItem('settings.vrBackgroundColor') ?? '#444444',
                 lightIntensity: JSON.parse(localStorage.getItem('settings.lightIntensity')) ?? 1.0,
                 lightType: localStorage.getItem('settings.lightType') ?? 'Directional',
                 threePointLighting: JSON.parse(localStorage.getItem('settings.threePointLighting')) ?? false,
-                threePointLightIntensity: JSON.parse(localStorage.getItem('settings.threePointLightIntensity')) ?? 1.0
+                threePointLightIntensity: JSON.parse(localStorage.getItem('settings.threePointLightIntensity')) ?? 1.0,
+                twoSided: JSON.parse(localStorage.getItem('settings.twoSided')) ?? false
             };
 
+            function updateTwoSided() {
+                const model = scene.getObjectByName('user_model');
+                if (model) {
+                    model.traverse((child) => {
+                        if (child.isMesh && child.material) {
+                            child.material.side = settings.twoSided ? THREE.DoubleSide : THREE.FrontSide;
+                        }
+                    });
+                }
+            }
+
+            const twoSidedToggle = document.getElementById('two-sided-toggle');
+            twoSidedToggle.checked = settings.twoSided;
+            twoSidedToggle.addEventListener('change', (event) => {
+                settings.twoSided = event.target.checked;
+                localStorage.setItem('settings.twoSided', settings.twoSided);
+                updateTwoSided();
+            });
             const antialiasToggle = document.getElementById('antialias-toggle');
             antialiasToggle.checked = settings.antialias;
             antialiasToggle.addEventListener('change', (event) => {
@@ -329,12 +391,6 @@
                 location.reload();
             });
 
-            const fpsToggle = document.getElementById('fps-toggle');
-            fpsToggle.checked = settings.showFPS;
-            fpsToggle.addEventListener('change', (event) => {
-                localStorage.setItem('settings.showFPS', event.target.checked);
-                location.reload();
-            });
 
             const rSlider = document.getElementById('r-slider');
             const gSlider = document.getElementById('g-slider');
@@ -454,14 +510,82 @@
 
             const canvas = document.querySelector('#c');
             const renderer = new THREE.WebGLRenderer({canvas, antialias: settings.antialias, alpha: true});
+            renderer.outputColorSpace = THREE.SRGBColorSpace;
             renderer.xr.enabled = true;
 
             // Set a reference space type that is compatible with most AR devices.
             renderer.xr.setReferenceSpaceType('local');
 
             const webxrButtonsContainer = document.getElementById('webxr-buttons');
-            webxrButtonsContainer.appendChild(VRButton.createButton(renderer));
-            webxrButtonsContainer.appendChild(ARButton.createButton(renderer));
+
+            function updateEnterExitButtons() {
+                const session = renderer.xr.getSession();
+                const vrButton = document.getElementById('VRButton');
+                const arButton = document.getElementById('ARButton');
+
+                if (!session) {
+                    // No session, both should say "Enter"
+                    if (vrButton) vrButton.textContent = 'Enter VR';
+                    if (arButton) arButton.textContent = 'Enter AR';
+                } else {
+                    // In a session, both buttons should exit and have the same text.
+                    if (vrButton) vrButton.textContent = 'Exit VR/AR';
+                    if (arButton) arButton.textContent = 'Exit VR/AR';
+                }
+            }
+            renderer.xr.addEventListener('sessionstart', updateEnterExitButtons);
+            renderer.xr.addEventListener('sessionend', updateEnterExitButtons);
+
+            // AR Button
+            if ('xr' in navigator) {
+                navigator.xr.isSessionSupported('immersive-ar').then((supported) => {
+                    if (supported) {
+                        const arButton = document.createElement('button');
+                        arButton.id = 'ARButton';
+                        arButton.addEventListener('click', () => {
+                            const currentSession = renderer.xr.getSession();
+                            if (currentSession) {
+                                currentSession.end();
+                            } else {
+                                const sessionInit = {
+                                    optionalFeatures: ['hand-tracking', 'dom-overlay', 'hit-test'],
+                                    domOverlay: { root: document.body }
+                                };
+                                navigator.xr.requestSession('immersive-ar', sessionInit).then((session) => {
+                                    renderer.xr.setSession(session);
+                                });
+                            }
+                        });
+                        webxrButtonsContainer.appendChild(arButton);
+                        updateEnterExitButtons(); // Set initial text
+                    }
+                });
+            }
+
+            // VR Button
+            if ('xr' in navigator) {
+                navigator.xr.isSessionSupported('immersive-vr').then((supported) => {
+                    if (supported) {
+                        const vrButton = document.createElement('button');
+                        vrButton.id = 'VRButton';
+                        vrButton.addEventListener('click', () => {
+                            const currentSession = renderer.xr.getSession();
+                            if (currentSession) {
+                                currentSession.end();
+                            } else {
+                                const sessionInit = {
+                                    optionalFeatures: ['local-floor', 'bounded-floor', 'hand-tracking']
+                                };
+                                navigator.xr.requestSession('immersive-vr', sessionInit).then((session) => {
+                                    renderer.xr.setSession(session);
+                                });
+                            }
+                        });
+                        webxrButtonsContainer.appendChild(vrButton);
+                        updateEnterExitButtons(); // Set initial text
+                    }
+                });
+            }
 
             let originalModelInfo = null;
             renderer.xr.addEventListener('sessionstart', async () => {
@@ -543,39 +667,82 @@
 
             const scene = new THREE.Scene();
 
-            // VR Controllers Setup
+            // --- VR Controllers Setup ---
+            const controllerModelFactory = new XRControllerModelFactory();
+
+            // Controller 1
             const controller1 = renderer.xr.getController(0);
             scene.add(controller1);
+
+            const controllerGrip1 = renderer.xr.getControllerGrip(0);
+            scene.add(controllerGrip1);
+
+            const hand1 = renderer.xr.getHand(0);
+            scene.add(hand1);
+
+            controller1.addEventListener('connected', function ( event ) {
+                const inputSource = event.data;
+                this.gamepad = inputSource.gamepad;
+                // Check if the input source has articulated hand tracking support
+                if (inputSource.hand) {
+                    leftHand = new Hand(hand1, 'left');
+                } else {
+                    // If not, fall back to the default controller model
+                    controllerGrip1.add(controllerModelFactory.createControllerModel(controllerGrip1));
+                }
+            });
+
+            controller1.addEventListener('disconnected', function () {
+                if (leftHand) {
+                    leftHand = null;
+                }
+                // Clear any models
+                controllerGrip1.clear();
+                hand1.clear();
+            });
+
+            // Controller 2
             const controller2 = renderer.xr.getController(1);
             scene.add(controller2);
 
-            const controllerModelFactory = new XRControllerModelFactory();
-
-            const controllerGrip1 = renderer.xr.getControllerGrip(0);
-            controllerGrip1.add(controllerModelFactory.createControllerModel(controllerGrip1));
-            scene.add(controllerGrip1);
-
             const controllerGrip2 = renderer.xr.getControllerGrip(1);
-            controllerGrip2.add(controllerModelFactory.createControllerModel(controllerGrip2));
             scene.add(controllerGrip2);
+
+            const hand2 = renderer.xr.getHand(1);
+            scene.add(hand2);
+
+            controller2.addEventListener('connected', function ( event ) {
+                const inputSource = event.data;
+                this.gamepad = inputSource.gamepad;
+                // Check if the input source has articulated hand tracking support
+                if (inputSource.hand) {
+                    rightHand = new Hand(hand2, 'right');
+                } else {
+                    // If not, fall back to the default controller model
+                    controllerGrip2.add(controllerModelFactory.createControllerModel(controllerGrip2));
+                }
+            });
+
+            controller2.addEventListener('disconnected', function () {
+                if (rightHand) {
+                    rightHand = null;
+                }
+                // Clear any models
+                controllerGrip2.clear();
+                hand2.clear();
+            });
+            // --- End VR Controllers Setup ---
 
             let gripPressed = [false, false];
             let triggerPressed = [false, false];
             let exitButtonPressed = [false, false];
+            let animationPauseButtonPressed = [false, false];
 
-            controller1.addEventListener('connected', function ( event ) {
-                console.log('Controller 0 Connected.');
-                this.gamepad = event.data.gamepad;
-            } );
             controller1.addEventListener('selectstart', () => { triggerPressed[0] = true; });
             controller1.addEventListener('selectend', () => { triggerPressed[0] = false; });
             controller1.addEventListener('squeezestart', () => { gripPressed[0] = true; });
             controller1.addEventListener('squeezeend', () => { gripPressed[0] = false; });
 
-            controller2.addEventListener('connected', function ( event ) {
-                console.log('Controller 1 Connected.');
-                this.gamepad = event.data.gamepad;
-            } );
             controller2.addEventListener('selectstart', () => { triggerPressed[1] = true; });
             controller2.addEventListener('selectend', () => { triggerPressed[1] = false; });
             controller2.addEventListener('squeezestart', () => { gripPressed[1] = true; });
@@ -711,9 +878,134 @@
             const fbxLoader = new FBXLoader();
             const objLoader = new OBJLoader();
             const stlLoader = new STLLoader();
+            const colladaLoader = new ColladaLoader();
+            const vrmlLoader = new VRMLLoader();
             const textureLoader = new THREE.TextureLoader();
 
-            function setModel(object) {
+            function loadResource(url, onLoadedCallback, originalFilename = null) {
+                const filename = originalFilename || url.split('/').pop();
+                const extension = filename.split('.').pop().toLowerCase();
+                const imageExtensions = ['jpg', 'jpeg', 'png'];
+
+                const onLoad = (result) => {
+                    if (imageExtensions.includes(extension)) {
+                        result.mapping = THREE.EquirectangularReflectionMapping;
+                        result.colorSpace = THREE.SRGBColorSpace;
+                        scene.background = result;
+                        scene.environment = result;
+                        currentBackground = result; // Update current background
+                    } else {
+                        let object;
+                        let animations = [];
+                        switch (extension) {
+                            case 'gltf':
+                            case 'glb':
+                            case 'dae': // Collada
+                                object = result.scene;
+                                animations = result.animations || [];
+                                break;
+                            case 'stl': {
+                                const material = new THREE.MeshStandardMaterial({color: 0xAAAAAA, metalness: 0.1, roughness: 0.75});
+                                object = new THREE.Mesh(result, material);
+                                object.rotation.set(-Math.PI / 2, 0, 0); // Correct for Z-up vs Y-up coordinate systems
+                                break;
+                            }
+                            case 'fbx':
+                            case 'obj':
+                            case 'wrl': // VRML
+                                object = result;
+                                animations = result.animations || [];
+                                break;
+                        }
+                        setModel(object, animations);
+                    }
+                    if (onLoadedCallback) onLoadedCallback();
+                };
+
+                const onError = (error) => {
+                    console.error(`An error happened while loading ${url}:`, error);
+                    alert(`Could not load resource: ${filename}. See console for details.`);
+                    if (onLoadedCallback) onLoadedCallback();
+                };
+
+                if (imageExtensions.includes(extension)) {
+                    textureLoader.load(url, onLoad, undefined, onError);
+                    return;
+                }
+
+                let loader;
+                switch (extension) {
+                    case 'gltf':
+                    case 'glb':
+                        (async () => {
+                            const conversionMessage = document.getElementById('conversion-message');
+                            try {
+                                let buffer;
+                                if (url instanceof ArrayBuffer) {
+                                    buffer = url;
+                                } else {
+                                    const response = await fetch(url);
+                                    buffer = await response.arrayBuffer();
+                                }
+
+                                if (modelNeedsConversion(buffer)) {
+                                    conversionMessage.style.display = 'block';
+                                    const io = new WebIO().registerExtensions(KHRONOS_EXTENSIONS);
+                                    const document = await io.readBinary(new Uint8Array(buffer));
+                                    await document.transform(metalRough());
+                                    const glb = await io.writeBinary(document);
+                                    conversionMessage.style.display = 'none';
+
+                                    // The transformed model is in a Uint8Array. Use parse() directly.
+                                    // This avoids issues with blob URLs and texture loading.
+                                    // GLTFLoader.parse expects an ArrayBuffer, so we pass the buffer property of the Uint8Array.
+                                    gltfLoader.parse(glb.buffer, '', onLoad, onError);
+                                } else {
+                                    // if it's a buffer, we need to parse it, otherwise load from url
+                                    if (url instanceof ArrayBuffer) {
+                                        gltfLoader.parse(url, '', (gltf) => onLoad(gltf), onError);
+                                    } else {
+                                        gltfLoader.load(url, onLoad, undefined, onError);
+                                    }
+                                }
+                            } catch (e) {
+                                conversionMessage.style.display = 'none';
+                                console.error('Error loading glTF model:', e);
+                                alert(`Failed to load glTF model: ${e.message}. See console for details.`);
+                                if (onLoadedCallback) onLoadedCallback();
+                            }
+                        })();
+                        return; // Don't use the generic loader.load() at the end
+                    case 'fbx':
+                        loader = fbxLoader;
+                        break;
+                    case 'obj':
+                        loader = objLoader;
+                        break;
+                    case 'stl':
+                        loader = stlLoader;
+                        break;
+                    case 'dae':
+                        loader = colladaLoader;
+                        break;
+                    case 'wrl':
+                        loader = vrmlLoader;
+                        break;
+                    default:
+                        alert(`Unsupported file type: .${extension}`);
+                        if (onLoadedCallback) onLoadedCallback();
+                        return;
+                }
+
+                loader.load(url, onLoad, undefined, onError);
+            }
+
+            function setModel(object, animations = []) {
+                if (mixer) {
+                    mixer.stopAllAction();
+                    mixer = null;
+                }
+
                 // The object could be a Group from GLTF/FBX/OBJ or a Mesh from STL
 
                 // Ensure the model scales from the bottom
@@ -734,6 +1026,14 @@
                 }
                 scene.add(modelGroup);
 
+                // Pass the newly loaded model to the hands for collision detection
+                if (leftHand) {
+                    leftHand.setTargetModel(modelGroup);
+                }
+                if (rightHand) {
+                    rightHand.setTargetModel(modelGroup);
+                }
+
                 // center and frame the new model group
                 const newBox = new THREE.Box3().setFromObject(modelGroup);
                 const boxSize = newBox.getSize(new THREE.Vector3()).length();
@@ -746,75 +1046,27 @@
                 controls.update();
 
                 updateLightForModel(newBox);
-            }
 
-            async function loadModelFromFile(file) {
-                const filename = file.name.toLowerCase();
-                const extension = filename.split('.').pop();
-                const imageExtensions = ['jpg', 'jpeg', 'png'];
-
-                if (imageExtensions.includes(extension)) {
-                    const imageURL = URL.createObjectURL(file);
-                    textureLoader.load(imageURL, (texture) => {
-                        texture.mapping = THREE.EquirectangularReflectionMapping;
-                        scene.background = texture;
-                        scene.environment = texture;
-                        currentBackground = texture; // Set as current background
-                        URL.revokeObjectURL(imageURL);
-                    });
-                    return;
+                if (animations && animations.length) {
+                    mixer = new THREE.AnimationMixer(object);
+                    const action = mixer.clipAction(animations[0]);
+                    action.play();
                 }
-
-                let contents;
-                try {
-                    const binaryExtensions = ['glb', 'stl', 'fbx'];
-                    if (binaryExtensions.includes(extension)) {
-                        contents = await file.arrayBuffer();
-                    } else {
-                        contents = await file.text();
-                    }
-                } catch (e) {
-                    alert(`Could not read file: ${e.message}`);
-                    console.error(e);
-                    return;
-                }
-
-                try {
-                    if (extension === 'gltf' || extension === 'glb') {
-                        gltfLoader.parse(contents, '', (gltf) => {
-                            setModel(gltf.scene);
-                        }, (error) => {
-                            alert(`An error occurred parsing the GLTF model: ${error.message}`);
-                            console.error(error);
-                        });
-                    } else {
-                        let object;
-                        switch (extension) {
-                            case 'fbx':
-                                object = fbxLoader.parse(contents, '');
-                                break;
-                            case 'obj':
-                                object = objLoader.parse(contents);
-                                break;
-                            case 'stl':
-                                const geometry = stlLoader.parse(contents);
-                                const material = new THREE.MeshStandardMaterial({color: 0xAAAAAA, metalness: 0.1, roughness: 0.75});
-                                object = new THREE.Mesh(geometry, material);
-                                break;
-                            default:
-                                alert(`Unsupported file type: .${extension}`);
-                                return;
-                        }
-                        setModel(object);
-                    }
-                } catch (err) {
-                    alert(`An error occurred loading the model: ${err.message}`);
-                    console.error(err);
-                }
+                updateTwoSided();
             }
 
             const browseButton = document.getElementById('browse-button');
-            const fallbackInput = document.getElementById('file-input-fallback');
+
+            async function handleFile(file) {
+                const extension = file.name.split('.').pop().toLowerCase();
+                if (extension === 'gltf' || extension === 'glb') {
+                    const buffer = await file.arrayBuffer();
+                    loadResource(buffer, () => {}, file.name);
+                } else {
+                    const url = URL.createObjectURL(file);
+                    loadResource(url, () => URL.revokeObjectURL(url), file.name);
+                }
+            }
 
             browseButton.addEventListener('click', async () => {
                 if (window.showOpenFilePicker) {
@@ -839,26 +1091,63 @@
                         };
                         const [fileHandle] = await window.showOpenFilePicker(pickerOpts);
                         const file = await fileHandle.getFile();
-                        loadModelFromFile(file);
+                        handleFile(file);
                     } catch (err) {
-                        // AbortError is thrown if the user closes the picker
                         if (err.name !== 'AbortError') {
                             alert(`Error opening file: ${err.message}`);
                             console.error(err);
                         }
                     }
-                } else {
-                    fallbackInput.click();
                 }
             });
 
-            fallbackInput.addEventListener('change', (event) => {
-                const file = event.target.files[0];
-                if (file) {
-                    loadModelFromFile(file);
+            const browseImageButton = document.getElementById('browse-image-button');
+
+            async function handleImageFile(file) {
+                const url = URL.createObjectURL(file);
+                textureLoader.load(url, (texture) => {
+                    URL.revokeObjectURL(url); // Revoke URL after loading
+                    texture.colorSpace = THREE.SRGBColorSpace;
+                    const aspectRatio = texture.image.width / texture.image.height;
+                    const imageHeight = 2; // Arbitrary height
+                    const imageWidth = imageHeight * aspectRatio;
+                    const geometry = new THREE.PlaneGeometry(imageWidth, imageHeight);
+                    const material = new THREE.MeshStandardMaterial({ map: texture, side: THREE.DoubleSide, transparent: true });
+                    const mesh = new THREE.Mesh(geometry, material);
+                    setModel(mesh);
+                }, undefined, (error) => {
+                    URL.revokeObjectURL(url);
+                    console.error(`An error happened while loading ${file.name}:`, error);
+                    alert(`Could not load image: ${file.name}. See console for details.`);
+                });
+            }
+
+            browseImageButton.addEventListener('click', async () => {
+                if (window.showOpenFilePicker) {
+                    try {
+                        const pickerOpts = {
+                            types: [
+                                {
+                                    description: 'Images',
+                                    accept: {
+                                        'image/jpeg': ['.jpg', '.jpeg'],
+                                        'image/png': ['.png'],
+                                    }
+                                },
+                            ],
+                            excludeAcceptAllOption: true,
+                            multiple: false
+                        };
+                        const [fileHandle] = await window.showOpenFilePicker(pickerOpts);
+                        const file = await fileHandle.getFile();
+                        handleImageFile(file);
+                    } catch (err) {
+                        if (err.name !== 'AbortError') {
+                            alert(`Error opening file: ${err.message}`);
+                            console.error(err);
+                        }
+                    }
                 }
-                // Reset fallback input
-                event.target.value = '';
             });
 
             const listContainer = document.getElementById('sample-models-list');
@@ -866,43 +1155,9 @@
                 if (event.target.tagName !== 'BUTTON') return;
 
                 const modelPath = event.target.dataset.path;
-                if (!modelPath) return;
-
-                const extension = modelPath.split('.').pop().toLowerCase();
-                let loader;
-                let onLoad;
-
-                switch (extension) {
-                    case 'gltf':
-                    case 'glb':
-                        loader = gltfLoader;
-                        onLoad = (gltf) => setModel(gltf.scene);
-                        break;
-                    case 'fbx':
-                        loader = fbxLoader;
-                        onLoad = (object) => setModel(object);
-                        break;
-                    case 'obj':
-                        loader = objLoader;
-                        onLoad = (object) => setModel(object);
-                        break;
-                    case 'stl':
-                        loader = stlLoader;
-                        onLoad = (geometry) => {
-                            const material = new THREE.MeshStandardMaterial({color: 0xAAAAAA, metalness: 0.1, roughness: 0.75});
-                            const mesh = new THREE.Mesh(geometry, material);
-                            setModel(mesh);
-                        };
-                        break;
-                    default:
-                        alert(`Unsupported file type for sample model: .${extension}`);
-                        return;
+                if (modelPath) {
+                    loadResource(modelPath);
                 }
-
-                loader.load(modelPath, onLoad, undefined, (error) => {
-                    console.error(`An error happened while loading the model ${modelPath}:`, error);
-                    alert(`Could not load model ${modelPath}. See console for details.`);
-                });
             });
 
             function frameArea(sizeToFitOnScreen, boxSize, boxCenter, camera) {
@@ -936,15 +1191,6 @@
             }
 
             const clock = new THREE.Clock();
-            const fpsCounter = {
-                element: document.getElementById('fps-counter'),
-                frames: 0,
-                lastTime: performance.now()
-            };
-
-            if (settings.showFPS) {
-                fpsCounter.element.style.display = 'block';
-            }
 
 
             function handleControllerInput(timeDelta) {
@@ -990,6 +1236,16 @@
                                 }
                             }
 
+                            // A/X button (usually index 4) for pausing/playing animation
+                            if (controller.gamepad.buttons.length > 4 && controller.gamepad.buttons[4].pressed) {
+                                if (!animationPauseButtonPressed[i] && mixer) {
+                                    animationPauseButtonPressed[i] = true;
+                                    mixer.timeScale = mixer.timeScale === 0 ? 1 : 0; // Toggle pause
+                                }
+                            } else {
+                                animationPauseButtonPressed[i] = false;
+                            }
+
                             // Exit VR button is independent of other controls
                             if (controller.gamepad.buttons.length > 5 && controller.gamepad.buttons[5].pressed) {
                                 if (!exitButtonPressed[i]) {
@@ -998,9 +1254,12 @@
                                     // This ensures the same exit logic is used everywhere.
                                     const vrButton = document.getElementById('VRButton');
                                     const arButton = document.getElementById('ARButton');
-                                    if (vrButton && vrButton.textContent.includes('EXIT')) {
+                                    console.log("Exit button pressed. VR button text:", vrButton?.textContent, "AR button text:", arButton?.textContent);
+                                    if (vrButton && vrButton.textContent.includes('Exit')) {
+                                        console.log("Clicking VR button to exit.");
                                         vrButton.click();
-                                    } else if (arButton && arButton.textContent.includes('STOP')) {
+                                    } else if (arButton && arButton.textContent.includes('Exit')) {
+                                        console.log("Clicking AR button to exit.");
                                         arButton.click();
                                     }
                                 }
@@ -1012,19 +1271,19 @@
                 }
             }
 
-            function render(time) {
-                if (settings.showFPS) {
-                    fpsCounter.frames++;
-                    if (time >= fpsCounter.lastTime + 1000) {
-                        fpsCounter.element.textContent = `${fpsCounter.frames} FPS`;
-                        fpsCounter.lastTime = time;
-                        fpsCounter.frames = 0;
-                    }
+            function render(time, frame) {
+                if (renderer.xr.isPresenting && frame) {
+                    const referenceSpace = renderer.xr.getReferenceSpace();
+                    if (leftHand) leftHand.update(frame, referenceSpace);
+                    if (rightHand) rightHand.update(frame, referenceSpace);
                 }
 
-                const delta = clock.getDelta();
-                handleControllerInput(delta);
 
+                const delta = clock.getDelta();
+                if (mixer) {
+                    mixer.update(delta);
+                }
+                handleControllerInput(delta);
                 if (resizeRendererToDisplaySize(renderer)) {
                     const canvas = renderer.domElement;
                     camera.aspect = canvas.clientWidth / canvas.clientHeight;
@@ -1078,9 +1337,19 @@
         window.addEventListener('DOMContentLoaded', main);
     </script>
     <script>
+        fetch('version.json')
+            .then(response => response.json())
+            .then(data => {
+                const versionDiv = document.getElementById('version-info');
+                if (versionDiv) {
+                    versionDiv.textContent = `Version: ${data.version}`;
+                }
+            })
+            .catch(err => console.error('Failed to load version:', err));
+
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
-                navigator.serviceWorker.register('/sw.js')
+                navigator.serviceWorker.register('./sw.js')
                     .then(registration => {
                         console.log('Service Worker registered with scope:', registration.scope);
                     })
