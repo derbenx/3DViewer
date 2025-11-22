@@ -246,6 +246,14 @@
                             <input type="checkbox" id="two-sided-toggle">
                             <label for="two-sided-toggle" style="font-size: 14px;">Render Two-Sided</label>
                         </div>
+                        <div>
+                            <input type="checkbox" id="disable-auto-scaling-toggle">
+                            <label for="disable-auto-scaling-toggle" style="font-size: 14px;">Disable Auto Scaling</label>
+                        </div>
+                        <div>
+                            <input type="checkbox" id="room-view-toggle">
+                            <label for="room-view-toggle" style="font-size: 14px;">Enable Room View</label>
+                        </div>
                         <div id="three-point-light-controls" style="display: none;">
                              <div style="display: flex; align-items: center; gap: 10px;">
                                 <label for="three-point-light-slider" style="font-size: 14px;">Light</label>
@@ -311,9 +319,9 @@
             "imports": {
                 "three": "./js/three/build/three.module.js",
                 "three/addons/": "./js/three/examples/jsm/",
-                "@gltf-transform/core": "https://esm.sh/@gltf-transform/core",
-                "@gltf-transform/extensions": "https://esm.sh/@gltf-transform/extensions",
-                "@gltf-transform/functions": "https://esm.sh/@gltf-transform/functions"
+                "@gltf-transform/core": "./js/gltf-transform/core.js",
+                "@gltf-transform/extensions": "./js/gltf-transform/extensions.js",
+                "@gltf-transform/functions": "./js/gltf-transform/functions.js"
             }
         }
     </script>
@@ -363,7 +371,9 @@
                 lightType: localStorage.getItem('settings.lightType') ?? 'Directional',
                 threePointLighting: JSON.parse(localStorage.getItem('settings.threePointLighting')) ?? false,
                 threePointLightIntensity: JSON.parse(localStorage.getItem('settings.threePointLightIntensity')) ?? 1.0,
-                twoSided: JSON.parse(localStorage.getItem('settings.twoSided')) ?? false
+                twoSided: JSON.parse(localStorage.getItem('settings.twoSided')) ?? false,
+                disableAutoScaling: JSON.parse(localStorage.getItem('settings.disableAutoScaling')) ?? false,
+                roomView: JSON.parse(localStorage.getItem('settings.roomView')) ?? false
             };
 
             function updateTwoSided() {
@@ -384,6 +394,41 @@
                 localStorage.setItem('settings.twoSided', settings.twoSided);
                 updateTwoSided();
             });
+
+            const disableAutoScalingToggle = document.getElementById('disable-auto-scaling-toggle');
+            disableAutoScalingToggle.checked = settings.disableAutoScaling;
+            disableAutoScalingToggle.addEventListener('change', (event) => {
+                settings.disableAutoScaling = event.target.checked;
+                localStorage.setItem('settings.disableAutoScaling', settings.disableAutoScaling);
+            });
+
+            const roomViewToggle = document.getElementById('room-view-toggle');
+            roomViewToggle.checked = settings.roomView;
+
+            function handleRoomViewChange(isRoomView) {
+                settings.roomView = isRoomView;
+                localStorage.setItem('settings.roomView', isRoomView);
+
+                if (isRoomView) {
+                    settings.disableAutoScaling = true;
+                    localStorage.setItem('settings.disableAutoScaling', true);
+                    disableAutoScalingToggle.checked = true;
+                    disableAutoScalingToggle.disabled = true;
+                } else {
+                    disableAutoScalingToggle.disabled = false;
+                    // Note: We don't automatically re-enable auto-scaling.
+                    // The user's original preference is maintained.
+                }
+            }
+
+            roomViewToggle.addEventListener('change', (event) => {
+                handleRoomViewChange(event.target.checked);
+            });
+
+            // Initial UI state setup on page load
+            handleRoomViewChange(settings.roomView);
+
+
             const antialiasToggle = document.getElementById('antialias-toggle');
             antialiasToggle.checked = settings.antialias;
             antialiasToggle.addEventListener('change', (event) => {
@@ -599,7 +644,7 @@
                 }
 
                 const model = scene.getObjectByName('user_model');
-                if (model) {
+                if (model && !settings.roomView) {
                     // Store original scale and position
                     originalModelInfo = {
                         scale: model.scale.clone(),
@@ -613,7 +658,7 @@
                     const maxDim = Math.max(size.x, size.y, size.z);
 
                     // Avoid division by zero or tiny numbers if model has no size
-                    if (maxDim > 0.001) {
+                    if (maxDim > 0.001 && !settings.disableAutoScaling) {
                         // Target size for VR (e.g., 1.5 meters on its longest side)
                         const targetSize = 1.5;
                         const scaleFactor = targetSize / maxDim;
@@ -628,6 +673,13 @@
                     model.position.x -= vrCenter.x;
                     model.position.y -= vrBox.min.y;
                     model.position.z -= vrCenter.z + 2;
+                } else if (model) {
+                    // In Room View, we still want to store the original position to restore it on exit.
+                     originalModelInfo = {
+                        scale: model.scale.clone(),
+                        position: model.position.clone()
+                    };
+                    // We don't need to move the model as it should be correctly positioned already.
                 }
             });
 
@@ -1006,45 +1058,51 @@
                     mixer = null;
                 }
 
-                // The object could be a Group from GLTF/FBX/OBJ or a Mesh from STL
-
-                // Ensure the model scales from the bottom
-                const box = new THREE.Box3().setFromObject(object);
-                const center = box.getCenter(new THREE.Vector3());
-                object.position.x -= center.x;
-                object.position.y -= box.min.y;
-                object.position.z -= center.z;
-
-                const modelGroup = new THREE.Group();
-                modelGroup.name = 'user_model';
-                modelGroup.add(object);
-
-                // remove previous model
                 const previousModel = scene.getObjectByName('user_model');
                 if (previousModel) {
                     scene.remove(previousModel);
                 }
+
+                const modelGroup = new THREE.Group();
+                modelGroup.name = 'user_model';
+                modelGroup.add(object);
                 scene.add(modelGroup);
 
-                // Pass the newly loaded model to the hands for collision detection
-                if (leftHand) {
-                    leftHand.setTargetModel(modelGroup);
-                }
-                if (rightHand) {
-                    rightHand.setTargetModel(modelGroup);
+                if (leftHand) leftHand.setTargetModel(modelGroup);
+                if (rightHand) rightHand.setTargetModel(modelGroup);
+
+                if (settings.roomView) {
+                    camera.position.set(0, 1.6, 0);
+                    controls.target.set(0, 1.6, 0.0001); // Look slightly off-center to enable rotation
+                    controls.enableZoom = false;
+                    controls.enablePan = true; // Allows "strafing"
+                    controls.maxDistance = Infinity;
+                    controls.minDistance = 0;
+                    controls.update();
+                } else {
+                    controls.enableZoom = true;
+                    controls.enablePan = true;
+
+                    if (!settings.disableAutoScaling) {
+                        const box = new THREE.Box3().setFromObject(object);
+                        const center = box.getCenter(new THREE.Vector3());
+                        object.position.x -= center.x;
+                        object.position.y -= box.min.y;
+                        object.position.z -= center.z;
+
+                        const newBox = new THREE.Box3().setFromObject(modelGroup);
+                        const boxSize = newBox.getSize(new THREE.Vector3()).length();
+                        const boxCenter = newBox.getCenter(new THREE.Vector3());
+
+                        frameArea(boxSize * 1.2, boxSize, boxCenter, camera);
+
+                        controls.maxDistance = boxSize * 10;
+                        controls.target.copy(boxCenter);
+                        controls.update();
+                    }
                 }
 
-                // center and frame the new model group
                 const newBox = new THREE.Box3().setFromObject(modelGroup);
-                const boxSize = newBox.getSize(new THREE.Vector3()).length();
-                const boxCenter = newBox.getCenter(new THREE.Vector3());
-
-                frameArea(boxSize * 1.2, boxSize, boxCenter, camera);
-
-                controls.maxDistance = boxSize * 10;
-                controls.target.copy(boxCenter);
-                controls.update();
-
                 updateLightForModel(newBox);
 
                 if (animations && animations.length) {
