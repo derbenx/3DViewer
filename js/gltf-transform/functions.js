@@ -1,3 +1,1614 @@
-/* esm.sh - @gltf-transform/functions@4.2.1 */
-import{Primitive as v,PropertyType as S,Document as F,getBounds as mt,Scene as wn,BufferUtils as ae,MathUtils as w,Accessor as le,Mesh as us,ComponentTypeToTypedArray as ke,Root as Ae,TextureInfo as H,Texture as me,ExtensionProperty as ht,AnimationChannel as Te,Material as $e,ColorUtils as Le,ImageUtils as he,TextureChannel as k,Node as Cn,PrimitiveTarget as ds,AnimationSampler as ps,uuid as je,FileUtils as ms}from"/@gltf-transform/core@^4.2.1?target=es2022";import{getPixels as At,savePixels as ce}from"/ndarray-pixels@^5.0.1?target=es2022";import{KHRMeshQuantization as bn,KHRDracoMeshCompression as We,EXTMeshGPUInstancing as Pn,EXTMeshoptCompression as Xe,KHRMaterialsIOR as hs,KHRMaterialsSpecular as As,KHRMaterialsPBRSpecularGlossiness as Ts,EXTTextureWebP as Es,EXTTextureAVIF as ys,KHRMaterialsUnlit as Is}from"/@gltf-transform/extensions@^4.2.1?target=es2022";import{read as Ss,KHR_DF_MODEL_ETC1S as Ns,KHR_DF_MODEL_UASTC as Ms}from"/ktx-parse@^1.0.1?target=es2022";import Oe from"/ndarray@^1.0.19?target=es2022";import{lanczos3 as Rs,lanczos2 as ws}from"/ndarray-lanczos@^0.3.0?target=es2022";function D(){return D=Object.assign?Object.assign.bind():function(e){for(var t=1;t<arguments.length;t++){var n=arguments[t];for(var s in n)({}).hasOwnProperty.call(n,s)&&(e[s]=n[s])}return e},D.apply(null,arguments)}var{POINTS:Ct,LINES:Se,LINE_STRIP:Cs,LINE_LOOP:bs,TRIANGLES:Ne,TRIANGLE_STRIP:Ps,TRIANGLE_FAN:Os}=v.Mode;function b(e,t){return Object.defineProperty(t,"name",{value:e}),t}function Ei(e,t,n){if(!e)return!1;let s=e.stack.lastIndexOf(t),r=e.stack.lastIndexOf(n);return s<r}function P(e,t){let n=D({},e);for(let s in t)t[s]!==void 0&&(n[s]=t[s]);return n}async function bt(e,t,n){if(!e)return null;let s=e.getImage();if(!s)return null;let r=await At(s,e.getMimeType());for(let a=0;a<r.shape[0];++a)for(let i=0;i<r.shape[1];++i)n(r,a,i);let o=await ce(r,"image/png");return t.setImage(o).setMimeType("image/png")}function Tt(e){let t=e.getIndices(),n=e.getAttribute("POSITION");switch(e.getMode()){case v.Mode.POINTS:return t?t.getCount():n.getCount();case v.Mode.LINES:return t?t.getCount()/2:n.getCount()/2;case v.Mode.LINE_LOOP:return t?t.getCount():n.getCount();case v.Mode.LINE_STRIP:return t?t.getCount()-1:n.getCount()-1;case v.Mode.TRIANGLES:return t?t.getCount()/3:n.getCount()/3;case v.Mode.TRIANGLE_STRIP:case v.Mode.TRIANGLE_FAN:return t?t.getCount()-2:n.getCount()-2;default:throw new Error("Unexpected mode: "+e.getMode())}}var de=class{constructor(){this._map=new Map}get size(){return this._map.size}has(t){return this._map.has(t)}add(t,n){let s=this._map.get(t);return s||(s=new Set,this._map.set(t,s)),s.add(n),this}get(t){return this._map.get(t)||new Set}keys(){return this._map.keys()}};function Pt(e,t=2){if(e===0)return"0 Bytes";let n=1e3,s=t<0?0:t,r=["Bytes","KB","MB","GB","TB","PB","EB","ZB","YB"],o=Math.floor(Math.log(e)/Math.log(n));return parseFloat((e/Math.pow(n,o)).toFixed(s))+" "+r[o]}var xs=new Intl.NumberFormat(void 0,{maximumFractionDigits:0});function rt(e){return xs.format(e)}function vs(e,t,n=2){return(e>t?"\u2013":"+")+(Math.abs(e-t)/e*100).toFixed(n)+"%"}function Be(e,t){return`${rt(e)} \u2192 ${rt(t)} (${vs(e,t)})`}function Ee(e){let t=[];for(let n of e.listAttributes())t.push(n);for(let n of e.listTargets())for(let s of n.listAttributes())t.push(s);return Array.from(new Set(t))}function $s(e,t,n){e.swap(t,n);for(let s of e.listTargets())s.swap(t,n)}function On(e){let t=e.getIndices(),n=Ee(e);e.dispose(),t&&!Q(t)&&t.dispose();for(let s of n)Q(s)||s.dispose()}function Ls(e,t){if(e==null&&t==null)return!0;if(e==null||t==null||e.length!==t.length)return!1;for(let n=0;n<e.length;n++)if(e[n]!==t[n])return!1;return!0}function G(e,t){return e.createAccessor(t.getName()).setArray(t.getArray()).setType(t.getType()).setBuffer(t.getBuffer()).setNormalized(t.getNormalized()).setSparse(t.getSparse())}function _s(e,t=e){let n=Et(e,t);for(let s=0;s<n.length;s++)n[s]=s;return n}function Et(e,t=e){return t<=65534?new Uint16Array(e):new Uint32Array(e)}function Q(e){return e.listParents().some(t=>t.propertyType!==S.ROOT)}function xn(e){for(let t in e)return!1;return!0}function vn(e){let t=F.fromGraph(e.getGraph()),n=e.getMaterial(),s=t.getRoot().listMaterials().indexOf(n),r=Fs[e.getMode()],o=!!e.getIndices(),a=e.listSemantics().sort().map(l=>{let g=e.getAttribute(l),c=g.getElementSize(),f=g.getComponentType();return`${l}:${c}:${f}`}).join("+"),i=e.listTargets().map(l=>l.listSemantics().sort().map(g=>{let c=e.getAttribute(g),f=c.getElementSize(),u=c.getComponentType();return`${g}:${f}:${u}`}).join("+")).join("~");return`${s}|${r}|${o}|${a}|${i}`}function $n(e,t){let[n,s]=t,[r,o]=e;if(r<=n&&o<=s)return e;let a=r,i=o;return a>n&&(i=Math.floor(i*(n/a)),a=n),i>s&&(a=Math.floor(a*(s/i)),i=s),[a,i]}function Ln(e,t){if(Ot(e[0])&&Ot(e[1]))return e;switch(t){case"nearest-pot":return e.map(zs);case"ceil-pot":return e.map(yt);case"floor-pot":return e.map(_n)}}function Ot(e){return e<=2?!0:(e&e-1)===0&&e!==0}function zs(e){if(e<=4)return 4;let t=_n(e),n=yt(e);return n-e>e-t?t:n}function _n(e){return Math.pow(2,Math.floor(Math.log(e)/Math.LN2))}function yt(e){return Math.pow(2,Math.ceil(Math.log(e)/Math.LN2))}var Fs={[Ct]:Ct,[Se]:Se,[Cs]:Se,[bs]:Se,[Ne]:Ne,[Ps]:Ne,[Os]:Ne},re="center",xt={pivot:"center"};function yi(e=xt){let t=P(xt,e);return b(re,n=>{let s=n.getLogger(),r=n.getRoot(),o=r.listAnimations().length>0||r.listSkins().length>0;n.getRoot().listScenes().forEach((a,i)=>{s.debug(`${re}: Scene ${i+1} / ${r.listScenes().length}.`);let l;if(typeof t.pivot=="string"){let c=mt(a);l=[(c.max[0]-c.min[0])/2+c.min[0],(c.max[1]-c.min[1])/2+c.min[1],(c.max[2]-c.min[2])/2+c.min[2]],t.pivot==="above"&&(l[1]=c.max[1]),t.pivot==="below"&&(l[1]=c.min[1])}else l=t.pivot;s.debug(`${re}: Pivot "${l.join(", ")}".`);let g=[-1*l[0],-1*l[1],-1*l[2]];if(o){s.debug(`${re}: Model contains animation or skin. Adding a wrapper node.`);let c=n.createNode("Pivot").setTranslation(g);a.listChildren().forEach(f=>c.addChild(f)),a.addChild(c)}else s.debug(`${re}: Skipping wrapper, offsetting all root nodes.`),a.listChildren().forEach(c=>{let f=c.getTranslation();c.setTranslation([f[0]+g[0],f[1]+g[1],f[2]+g[2]])})}),s.debug(`${re}: Complete.`)})}function Us(e){let t=new Set,n=e,s;for(;s=n.getParentNode();){if(t.has(s))throw new Error("Circular dependency in scene graph.");t.add(s),n=s}return n.listParents().filter(r=>r instanceof wn)}function Ds(e){let t=Us(e),n=e.getParentNode();if(!n)return e;e.setMatrix(e.getWorldMatrix()),n.removeChild(e);for(let s of t)s.addChild(e);return e}var fe=typeof Float32Array<"u"?Float32Array:Array;Math.hypot||(Math.hypot=function(){for(var e=0,t=arguments.length;t--;)e+=arguments[t]*arguments[t];return Math.sqrt(e)});function zn(e,t){var n=t[0],s=t[1],r=t[2],o=t[3],a=t[4],i=t[5],l=t[6],g=t[7],c=t[8],f=t[9],u=t[10],d=t[11],p=t[12],m=t[13],h=t[14],E=t[15],A=n*i-s*a,T=n*l-r*a,I=n*g-o*a,y=s*l-r*i,N=s*g-o*i,x=r*g-o*l,$=c*m-f*p,_=c*h-u*p,L=c*E-d*p,q=f*h-u*m,M=f*E-d*m,O=u*E-d*h,C=A*O-T*M+I*q+y*L-N*_+x*$;return C?(C=1/C,e[0]=(i*O-l*M+g*q)*C,e[1]=(r*M-s*O-o*q)*C,e[2]=(m*x-h*N+E*y)*C,e[3]=(u*N-f*x-d*y)*C,e[4]=(l*L-a*O-g*_)*C,e[5]=(n*O-r*L+o*_)*C,e[6]=(h*I-p*x-E*T)*C,e[7]=(c*x-u*I+d*T)*C,e[8]=(a*M-i*L+g*$)*C,e[9]=(s*L-n*M-o*$)*C,e[10]=(p*N-m*I+E*A)*C,e[11]=(f*I-c*N-d*A)*C,e[12]=(i*_-a*q-l*$)*C,e[13]=(n*q-s*_+r*$)*C,e[14]=(m*T-p*y-h*A)*C,e[15]=(c*y-f*T+u*A)*C,e):null}function Gs(e){var t=e[0],n=e[1],s=e[2],r=e[3],o=e[4],a=e[5],i=e[6],l=e[7],g=e[8],c=e[9],f=e[10],u=e[11],d=e[12],p=e[13],m=e[14],h=e[15],E=t*a-n*o,A=t*i-s*o,T=t*l-r*o,I=n*i-s*a,y=n*l-r*a,N=s*l-r*i,x=g*p-c*d,$=g*m-f*d,_=g*h-u*d,L=c*m-f*p,q=c*h-u*p,M=f*h-u*m;return E*M-A*q+T*L+I*_-y*$+N*x}function ye(e,t,n){var s=t[0],r=t[1],o=t[2],a=t[3],i=t[4],l=t[5],g=t[6],c=t[7],f=t[8],u=t[9],d=t[10],p=t[11],m=t[12],h=t[13],E=t[14],A=t[15],T=n[0],I=n[1],y=n[2],N=n[3];return e[0]=T*s+I*i+y*f+N*m,e[1]=T*r+I*l+y*u+N*h,e[2]=T*o+I*g+y*d+N*E,e[3]=T*a+I*c+y*p+N*A,T=n[4],I=n[5],y=n[6],N=n[7],e[4]=T*s+I*i+y*f+N*m,e[5]=T*r+I*l+y*u+N*h,e[6]=T*o+I*g+y*d+N*E,e[7]=T*a+I*c+y*p+N*A,T=n[8],I=n[9],y=n[10],N=n[11],e[8]=T*s+I*i+y*f+N*m,e[9]=T*r+I*l+y*u+N*h,e[10]=T*o+I*g+y*d+N*E,e[11]=T*a+I*c+y*p+N*A,T=n[12],I=n[13],y=n[14],N=n[15],e[12]=T*s+I*i+y*f+N*m,e[13]=T*r+I*l+y*u+N*h,e[14]=T*o+I*g+y*d+N*E,e[15]=T*a+I*c+y*p+N*A,e}function ks(e,t){return e[0]=t[0],e[1]=0,e[2]=0,e[3]=0,e[4]=0,e[5]=t[1],e[6]=0,e[7]=0,e[8]=0,e[9]=0,e[10]=t[2],e[11]=0,e[12]=0,e[13]=0,e[14]=0,e[15]=1,e}function Bs(e,t,n,s){var r=t[0],o=t[1],a=t[2],i=t[3],l=r+r,g=o+o,c=a+a,f=r*l,u=r*g,d=r*c,p=o*g,m=o*c,h=a*c,E=i*l,A=i*g,T=i*c,I=s[0],y=s[1],N=s[2];return e[0]=(1-(p+h))*I,e[1]=(u+T)*I,e[2]=(d-A)*I,e[3]=0,e[4]=(u-T)*y,e[5]=(1-(f+h))*y,e[6]=(m+E)*y,e[7]=0,e[8]=(d+A)*N,e[9]=(m-E)*N,e[10]=(1-(f+p))*N,e[11]=0,e[12]=n[0],e[13]=n[1],e[14]=n[2],e[15]=1,e}var R;(function(e){e.RENDER="render",e.RENDER_CACHED="render-cached",e.UPLOAD="upload",e.UPLOAD_NAIVE="upload-naive",e.DISTINCT="distinct",e.DISTINCT_POSITION="distinct-position",e.UNUSED="unused"})(R||(R={}));function Ke(e,t){return Fn(e,t)}function Ii(e,t){return Fn(e,t)}function Fn(e,t){let n=[],s=[],r=[];e.traverse(c=>{let f=c.getMesh(),u=c.getExtension("EXT_mesh_gpu_instancing");u&&f?(r.push(f),n.push([u.listAttributes()[0].getCount(),f])):f&&(r.push(f),s.push(f))});let a=r.flatMap(c=>c.listPrimitives()).map(c=>c.getAttribute("POSITION")),i=Array.from(new Set(a)),l=Array.from(new Set(r)),g=Array.from(new Set(l.flatMap(c=>c.listPrimitives())));switch(t){case R.RENDER:case R.RENDER_CACHED:return oe(s.map(c=>xe(c,t)))+oe(n.map(([c,f])=>c*xe(f,t)));case R.UPLOAD_NAIVE:return oe(l.map(c=>xe(c,t)));case R.UPLOAD:return oe(i.map(c=>c.getCount()));case R.DISTINCT:case R.DISTINCT_POSITION:return It(t);case R.UNUSED:return Un(g);default:return St(t)}}function xe(e,t){let n=e.listPrimitives(),s=Array.from(new Set(n)),r=Array.from(new Set(s.map(o=>o.getAttribute("POSITION"))));switch(t){case R.RENDER:case R.RENDER_CACHED:case R.UPLOAD_NAIVE:return oe(n.map(o=>B(o,t)));case R.UPLOAD:return oe(r.map(o=>o.getCount()));case R.DISTINCT:case R.DISTINCT_POSITION:return It(t);case R.UNUSED:return Un(s);default:return St(t)}}function B(e,t){let n=e.getAttribute("POSITION"),s=e.getIndices();switch(t){case R.RENDER:return s?s.getCount():n.getCount();case R.RENDER_CACHED:return s?new Set(s.getArray()).size:n.getCount();case R.UPLOAD_NAIVE:case R.UPLOAD:return n.getCount();case R.DISTINCT:case R.DISTINCT_POSITION:return It(t);case R.UNUSED:return s?n.getCount()-new Set(s.getArray()).size:0;default:return St(t)}}function oe(e){let t=0;for(let n=0;n<e.length;n++)t+=e[n];return t}function Un(e){let t=new Map;for(let s of e){let r=s.getAttribute("POSITION"),o=s.getIndices(),a=t.get(r)||new Set;a.add(o),t.set(r,a)}let n=0;for(let[s,r]of t){if(r.has(null))continue;let o=new Uint8Array(s.getCount());for(let a of r){let i=a.getArray();for(let l=0,g=i.length;l<g;l++)o[i[l]]=1}for(let a=0,i=s.getCount();a<i;a++)o[a]===0&&n++}return n}function It(e){throw new Error(`Not implemented: ${e}`)}function St(e){throw new Error(`Unexpected value: ${e}`)}var X=2**32-1,ot=class{constructor(t){this.attributes=[],this.u8=void 0,this.u32=void 0;let n=0;for(let s of Ee(t))n+=this._initAttribute(s);this.u8=new Uint8Array(n),this.u32=new Uint32Array(this.u8.buffer)}_initAttribute(t){let n=t.getArray(),s=new Uint8Array(n.buffer,n.byteOffset,n.byteLength),r=t.getElementSize()*t.getComponentSize(),o=ae.padNumber(r);return this.attributes.push({u8:s,byteStride:r,paddedByteStride:o}),o}hash(t){let n=0;for(let{u8:s,byteStride:r,paddedByteStride:o}of this.attributes){for(let a=0;a<o;a++)a<r?this.u8[n+a]=s[t*r+a]:this.u8[n+a]=0;n+=o}return qs(0,this.u32)}equal(t,n){for(let{u8:s,byteStride:r}of this.attributes)for(let o=0;o<r;o++)if(s[t*r+o]!==s[n*r+o])return!1;return!0}};function qs(e,t){for(let r=0,o=t.length;r<o;r++){let a=t[r];a=Math.imul(a,1540483477)>>>0,a=(a^a>>24)>>>0,a=Math.imul(a,1540483477)>>>0,e=Math.imul(e,1540483477)>>>0,e=(e^a)>>>0}return e}function Vs(e,t,n,s,r=X){let o=t-1,i=n.hash(s)&o;for(let l=0;l<=o;l++){let g=e[i];if(g===r||n.equal(g,s))return i;i=i+l+1&o}throw new Error("Hash table full.")}function te(e,t,n){let s=F.fromGraph(e.getGraph());(!t||!n)&&([t,n]=Hs(e));let r=e.getIndices(),o=r?r.getArray():null,a=B(e,R.RENDER),i=s.createAccessor(),l=a,g=Et(l,n);for(let f=0;f<l;f++)g[f]=t[o?o[f]:f];e.setIndices(i.setArray(g));let c=Ee(e);for(let f of e.listAttributes()){let u=G(s,f);_e(f,r,t,u,n),e.swap(f,u)}for(let f of e.listTargets())for(let u of f.listAttributes()){let d=G(s,u);_e(u,r,t,d,n),f.swap(u,d)}r&&r.listParents().length===1&&r.dispose();for(let f of c)f.listParents().length===1&&f.dispose();return e}function _e(e,t,n,s,r){let o=e.getElementSize(),a=e.getArray(),i=t?t.getArray():null,l=t?t.getCount():e.getCount(),g=new a.constructor(r*o),c=new Uint8Array(r);for(let f=0;f<l;f++){let u=i?i[f]:f,d=n[u];if(!c[d]){for(let p=0;p<o;p++)g[d*o+p]=a[u*o+p];c[d]=1}}return s.setArray(g)}function Hs(e){let t=B(e,R.UPLOAD),n=e.getIndices(),s=n?n.getArray():null;if(!n||!s)return[_s(t,1e6),t];let r=new Uint32Array(t).fill(X),o=0;for(let a=0;a<s.length;a++){let i=s[a];r[i]===X&&(r[i]=o++)}return[r,o]}function js(){var e=new fe(9);return fe!=Float32Array&&(e[1]=0,e[2]=0,e[3]=0,e[5]=0,e[6]=0,e[7]=0),e[0]=1,e[4]=1,e[8]=1,e}function Ws(e,t){return e[0]=t[0],e[1]=t[1],e[2]=t[2],e[3]=t[4],e[4]=t[5],e[5]=t[6],e[6]=t[8],e[7]=t[9],e[8]=t[10],e}function Xs(e,t){if(e===t){var n=t[1],s=t[2],r=t[5];e[1]=t[3],e[2]=t[6],e[3]=n,e[5]=t[7],e[6]=s,e[7]=r}else e[0]=t[0],e[1]=t[3],e[2]=t[6],e[3]=t[1],e[4]=t[4],e[5]=t[7],e[6]=t[2],e[7]=t[5],e[8]=t[8];return e}function Ks(e,t){var n=t[0],s=t[1],r=t[2],o=t[3],a=t[4],i=t[5],l=t[6],g=t[7],c=t[8],f=c*a-i*g,u=-c*o+i*l,d=g*o-a*l,p=n*f+s*u+r*d;return p?(p=1/p,e[0]=f*p,e[1]=(-c*s+r*g)*p,e[2]=(i*s-r*a)*p,e[3]=u*p,e[4]=(c*n-r*l)*p,e[5]=(-i*n+r*o)*p,e[6]=d*p,e[7]=(-g*n+s*l)*p,e[8]=(a*n-s*o)*p,e):null}function qe(){var e=new fe(3);return fe!=Float32Array&&(e[0]=0,e[1]=0,e[2]=0),e}function Js(e,t,n){return e[0]=t[0]*n[0],e[1]=t[1]*n[1],e[2]=t[2]*n[2],e}function it(e,t,n){return e[0]=Math.min(t[0],n[0]),e[1]=Math.min(t[1],n[1]),e[2]=Math.min(t[2],n[2]),e}function at(e,t,n){return e[0]=Math.max(t[0],n[0]),e[1]=Math.max(t[1],n[1]),e[2]=Math.max(t[2],n[2]),e}function vt(e,t,n){return e[0]=t[0]*n,e[1]=t[1]*n,e[2]=t[2]*n,e}function Nt(e,t){var n=t[0],s=t[1],r=t[2],o=n*n+s*s+r*r;return o>0&&(o=1/Math.sqrt(o)),e[0]=t[0]*o,e[1]=t[1]*o,e[2]=t[2]*o,e}function Dn(e,t,n){var s=t[0],r=t[1],o=t[2],a=n[3]*s+n[7]*r+n[11]*o+n[15];return a=a||1,e[0]=(n[0]*s+n[4]*r+n[8]*o+n[12])/a,e[1]=(n[1]*s+n[5]*r+n[9]*o+n[13])/a,e[2]=(n[2]*s+n[6]*r+n[10]*o+n[14])/a,e}function Ys(e,t,n){var s=t[0],r=t[1],o=t[2];return e[0]=s*n[0]+r*n[3]+o*n[6],e[1]=s*n[1]+r*n[4]+o*n[7],e[2]=s*n[2]+r*n[5]+o*n[8],e}var Qs=Js;(function(){var e=qe();return function(t,n,s,r,o,a){var i,l;for(n||(n=3),s||(s=0),r?l=Math.min(r*n+s,t.length):l=t.length,i=s;i<l;i+=n)e[0]=t[i],e[1]=t[i+1],e[2]=t[i+2],o(e,e,a),t[i]=e[0],t[i+1]=e[1],t[i+2]=e[2];return t}})();var ct="weld",ze={overwrite:!0};function Gn(e=ze){let t=P(ze,e);return b(ct,async n=>{let s=n.getLogger();for(let r of n.getRoot().listMeshes()){for(let o of r.listPrimitives())Ve(o,t),B(o,R.RENDER)===0&&On(o);r.listPrimitives().length===0&&r.dispose()}s.debug(`${ct}: Complete.`)})}function Ve(e,t=ze){let n=e.getGraph(),r=F.fromGraph(n).getLogger(),o=D({},ze,t);if(e.getIndices()&&!o.overwrite||e.getMode()===v.Mode.POINTS)return;let a=e.getAttribute("POSITION").getCount(),i=e.getIndices(),l=i?.getArray(),g=i?i.getCount():a,c=new ot(e),f=yt(a+a/4),u=new Uint32Array(f).fill(X),d=new Uint32Array(a).fill(X),p=0;for(let m=0;m<g;m++){let h=l?l[m]:m;if(d[h]!==X)continue;let E=Vs(u,f,c,h,X),A=u[E];A===X?(u[E]=h,d[h]=p++):d[h]=d[A]}r.debug(`${ct}: ${Be(a,p)} vertices.`),te(e,d,p)}var{FLOAT:Zs}=le.ComponentType;function kn(e,t){let n=e.getAttribute("POSITION");n&&$t(t,n);let s=e.getAttribute("NORMAL");s&&Lt(t,s);let r=e.getAttribute("TANGENT");r&&_t(t,r);for(let o of e.listTargets()){let a=o.getAttribute("POSITION");a&&$t(t,a);let i=o.getAttribute("NORMAL");i&&Lt(t,i);let l=o.getAttribute("TANGENT");l&&_t(t,l)}Gs(t)<0&&er(e)}function $t(e,t){let n=t.getComponentType(),s=t.getNormalized(),r=t.getArray(),o=n===Zs?r:new Float32Array(r.length),a=qe();for(let i=0,l=t.getCount();i<l;i++)s?(a[0]=w.decodeNormalizedInt(r[i*3],n),a[1]=w.decodeNormalizedInt(r[i*3+1],n),a[2]=w.decodeNormalizedInt(r[i*3+2],n)):(a[0]=r[i*3],a[1]=r[i*3+1],a[2]=r[i*3+2]),Dn(a,a,e),o[i*3]=a[0],o[i*3+1]=a[1],o[i*3+2]=a[2];t.setArray(o).setNormalized(!1)}function Lt(e,t){let n=t.getArray(),s=t.getNormalized(),r=t.getComponentType(),o=js();Ws(o,e),Ks(o,o),Xs(o,o);let a=qe();for(let i=0,l=t.getCount();i<l;i++)s?(a[0]=w.decodeNormalizedInt(n[i*3],r),a[1]=w.decodeNormalizedInt(n[i*3+1],r),a[2]=w.decodeNormalizedInt(n[i*3+2],r)):(a[0]=n[i*3],a[1]=n[i*3+1],a[2]=n[i*3+2]),Ys(a,a,o),Nt(a,a),s?(n[i*3]=w.decodeNormalizedInt(a[0],r),n[i*3+1]=w.decodeNormalizedInt(a[1],r),n[i*3+2]=w.decodeNormalizedInt(a[2],r)):(n[i*3]=a[0],n[i*3+1]=a[1],n[i*3+2]=a[2])}function _t(e,t){let n=t.getArray(),s=t.getNormalized(),r=t.getComponentType(),o=qe();for(let a=0,i=t.getCount();a<i;a++)s?(o[0]=w.decodeNormalizedInt(n[a*4],r),o[1]=w.decodeNormalizedInt(n[a*4+1],r),o[2]=w.decodeNormalizedInt(n[a*4+2],r)):(o[0]=n[a*4],o[1]=n[a*4+1],o[2]=n[a*4+2]),o[0]=e[0]*o[0]+e[4]*o[1]+e[8]*o[2],o[1]=e[1]*o[0]+e[5]*o[1]+e[9]*o[2],o[2]=e[2]*o[0]+e[6]*o[1]+e[10]*o[2],Nt(o,o),s?(n[a*4]=w.decodeNormalizedInt(o[0],r),n[a*4+1]=w.decodeNormalizedInt(o[1],r),n[a*4+2]=w.decodeNormalizedInt(o[2],r)):(n[a*4]=o[0],n[a*4+1]=o[1],n[a*4+2]=o[2])}function er(e){if(e.getMode()!==v.Mode.TRIANGLES)return;e.getIndices()||Ve(e);let t=e.getIndices();for(let n=0,s=t.getCount();n<s;n+=3){let r=t.getScalar(n),o=t.getScalar(n+2);t.setScalar(n,o),t.setScalar(n+2,r)}}function tr(e,t){for(let n of e.listPrimitives()){let s=nr(n,e);n!==s&&e.removePrimitive(n).addPrimitive(s)}for(let n of e.listPrimitives())te(n),kn(n,t)}function nr(e,t){e.listParents().some(s=>s instanceof us&&s!==t)&&(e=e.clone());for(let s of e.listTargets())s.listParents().some(o=>o instanceof v&&o!==e)&&e.removeTarget(s).addTarget(s.clone());return e}var zt=[1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1];function Si(e){let t=e.getMesh(),n=e.getMatrix();t&&!w.eq(n,zt)&&tr(t,n);for(let s of e.listChildren()){let r=s.getMatrix();ye(r,r,n),s.setMatrix(r)}return e.setMatrix(zt)}var{LINES:sr,LINE_STRIP:rr,LINE_LOOP:or,TRIANGLES:ir,TRIANGLE_STRIP:ar,TRIANGLE_FAN:cr}=v.Mode;function lr(e){let t=e.getGraph(),n=F.fromGraph(t);e.getIndices()||Ve(e);let s=e.getIndices(),r=s.getArray(),o=Tt(e),a=ke[s.getComponentType()],i=new a(o*2),l=e.getMode();if(l===rr)for(let c=0;c<o;c++)i[c*2]=r[c],i[c*2+1]=r[c+1];else if(l===or)for(let c=0;c<o;c++)c<o-1?(i[c*2]=r[c],i[c*2+1]=r[c+1]):(i[c*2]=r[c],i[c*2+1]=r[0]);else throw new Error("Only LINE_STRIP and LINE_LOOP may be converted to LINES.");e.setMode(sr);let g=n.getRoot();s.listParents().some(c=>c!==g&&c!==e)?e.setIndices(G(n,s).setArray(i)):s.setArray(i)}function Bn(e){let t=e.getGraph(),n=F.fromGraph(t);e.getIndices()||Ve(e);let s=e.getIndices(),r=s.getArray(),o=Tt(e),a=ke[s.getComponentType()],i=new a(o*3),l=e.getMode();if(l===ar)for(let c=0,f=r.length;c<f-2;c++)c%2?(i[c*3]=r[c+1],i[c*3+1]=r[c],i[c*3+2]=r[c+2]):(i[c*3]=r[c],i[c*3+1]=r[c+1],i[c*3+2]=r[c+2]);else if(l===cr)for(let c=0;c<o;c++)i[c*3]=r[0],i[c*3+1]=r[c+1],i[c*3+2]=r[c+2];else throw new Error("Only TRIANGLE_STRIP and TRIANGLE_FAN may be converted to TRIANGLES.");e.setMode(ir);let g=n.getRoot();s.listParents().some(c=>c!==g&&c!==e)?e.setIndices(G(n,s).setArray(i)):s.setArray(i)}var J="dedup",Je={keepUniqueNames:!1,propertyTypes:[S.ACCESSOR,S.MESH,S.TEXTURE,S.MATERIAL,S.SKIN]};function qn(e=Je){let t=P(Je,e),n=new Set(t.propertyTypes);for(let s of t.propertyTypes)if(!Je.propertyTypes.includes(s))throw new Error(`${J}: Unsupported deduplication on type "${s}".`);return b(J,s=>{let r=s.getLogger();n.has(S.ACCESSOR)&&fr(s),n.has(S.TEXTURE)&&ur(s,t),n.has(S.MATERIAL)&&dr(s,t),n.has(S.MESH)&&gr(s,t),n.has(S.SKIN)&&pr(s,t),r.debug(`${J}: Complete.`)})}function fr(e){let t=e.getLogger(),n=new Map,s=new Map,r=new Map,o=new Map,a=e.getRoot().listMeshes();a.forEach(f=>{f.listPrimitives().forEach(u=>{u.listAttributes().forEach(d=>i(d,s)),i(u.getIndices(),n)})});for(let f of e.getRoot().listAnimations())for(let u of f.listSamplers())i(u.getInput(),r),i(u.getOutput(),o);function i(f,u){if(!f)return;let d=[f.getCount(),f.getType(),f.getComponentType(),f.getNormalized(),f.getSparse()].join(":"),p=u.get(d);p||u.set(d,p=new Set),p.add(f)}function l(f,u){for(let d=0;d<f.length;d++){let p=f[d],m=ae.toView(p.getArray());if(!u.has(p))for(let h=d+1;h<f.length;h++){let E=f[h];u.has(E)||ae.equals(m,ae.toView(E.getArray()))&&u.set(E,p)}}}let g=0,c=new Map;for(let f of[s,n,r,o])for(let u of f.values())g+=u.size,l(Array.from(u),c);t.debug(`${J}: Merged ${c.size} of ${g} accessors.`),a.forEach(f=>{f.listPrimitives().forEach(u=>{u.listAttributes().forEach(p=>{c.has(p)&&u.swap(p,c.get(p))});let d=u.getIndices();d&&c.has(d)&&u.swap(d,c.get(d))})});for(let f of e.getRoot().listAnimations())for(let u of f.listSamplers()){let d=u.getInput(),p=u.getOutput();d&&c.has(d)&&u.swap(d,c.get(d)),p&&c.has(p)&&u.swap(p,c.get(p))}Array.from(c.keys()).forEach(f=>f.dispose())}function gr(e,t){let n=e.getLogger(),s=e.getRoot(),r=new Map;s.listAccessors().forEach((i,l)=>r.set(i,l)),s.listMaterials().forEach((i,l)=>r.set(i,l));let o=s.listMeshes().length,a=new Map;for(let i of s.listMeshes()){let l=[];for(let c of i.listPrimitives())l.push(Vn(c,r));let g="";if(t.keepUniqueNames&&(g+=i.getName()+";"),g+=l.join(";"),a.has(g)){let c=a.get(g);i.listParents().forEach(f=>{f.propertyType!==S.ROOT&&f.swap(i,c)}),i.dispose()}else a.set(g,i)}n.debug(`${J}: Merged ${o-a.size} of ${o} meshes.`)}function ur(e,t){let n=e.getLogger(),s=e.getRoot(),r=s.listTextures(),o=new Map;for(let a=0;a<r.length;a++){let i=r[a],l=i.getImage();if(!o.has(i))for(let g=a+1;g<r.length;g++){let c=r[g],f=c.getImage();if(o.has(c)||i.getMimeType()!==c.getMimeType()||t.keepUniqueNames&&i.getName()!==c.getName())continue;let u=i.getSize(),d=c.getSize();!u||!d||u[0]===d[0]&&u[1]===d[1]&&(!l||!f||ae.equals(l,f)&&o.set(c,i))}}n.debug(`${J}: Merged ${o.size} of ${s.listTextures().length} textures.`),Array.from(o.entries()).forEach(([a,i])=>{a.listParents().forEach(l=>{l instanceof Ae||l.swap(a,i)}),a.dispose()})}function dr(e,t){let n=e.getLogger(),r=e.getRoot().listMaterials(),o=new Map,a=new Map,i=new Set;t.keepUniqueNames||i.add("name");for(let l=0;l<r.length;l++){let g=r[l];if(!o.has(g)&&!Ft(g,a))for(let c=l+1;c<r.length;c++){let f=r[c];o.has(f)||Ft(f,a)||g.equals(f,i)&&o.set(f,g)}}n.debug(`${J}: Merged ${o.size} of ${r.length} materials.`),Array.from(o.entries()).forEach(([l,g])=>{l.listParents().forEach(c=>{c instanceof Ae||c.swap(l,g)}),l.dispose()})}function pr(e,t){let n=e.getLogger(),r=e.getRoot().listSkins(),o=new Map,a=new Set(["joints"]);t.keepUniqueNames||a.add("name");for(let i=0;i<r.length;i++){let l=r[i];if(!o.has(l))for(let g=i+1;g<r.length;g++){let c=r[g];o.has(c)||l.equals(c,a)&&Ls(l.listJoints(),c.listJoints())&&o.set(c,l)}}n.debug(`${J}: Merged ${o.size} of ${r.length} skins.`),Array.from(o.entries()).forEach(([i,l])=>{i.listParents().forEach(g=>{g instanceof Ae||g.swap(i,l)}),i.dispose()})}function Vn(e,t){let n=[];for(let s of e.listSemantics()){let r=e.getAttribute(s);n.push(s+":"+t.get(r))}if(e instanceof v){let s=e.getIndices();s&&n.push("indices:"+t.get(s));let r=e.getMaterial();r&&n.push("material:"+t.get(r)),n.push("mode:"+e.getMode());for(let o of e.listTargets())n.push("target:"+Vn(o,t))}return n.join(",")}function Ft(e,t){if(t.has(e))return t.get(e);let n=e.getGraph(),s=new Set,r=n.listParentEdges(e);for(;r.length>0;){let o=r.pop();if(o.getAttributes().modifyChild===!0)return t.set(e,!0),!0;let a=o.getChild();if(!s.has(a))for(let i of n.listChildEdges(a))r.push(i)}return t.set(e,!1),!1}var Ut="dequantize",Fe={pattern:/^((?!JOINTS_).)*$/};function Ni(e=Fe){let t=P(Fe,e);return b(Ut,n=>{let s=n.getLogger();for(let r of n.getRoot().listMeshes())for(let o of r.listPrimitives())mr(o,t);n.createExtension(bn).dispose(),s.debug(`${Ut}: Complete.`)})}function mr(e,t=Fe){let n=P(Fe,t);for(let s of e.listSemantics())n.pattern.test(s)&&lt(e.getAttribute(s));for(let s of e.listTargets())for(let r of s.listSemantics())n.pattern.test(r)&&lt(s.getAttribute(r))}function lt(e){let t=e.getArray();if(!t)return;let n=ge(t,e.getComponentType(),e.getNormalized());e.setArray(n).setNormalized(!1)}function ge(e,t,n){let s=new Float32Array(e.length);for(let r=0,o=e.length;r<o;r++)n?s[r]=w.decodeNormalizedInt(e[r],t):s[r]=e[r];return s}var{TEXTURE_INFO:Mt,ROOT:hr}=S,Ar=new Set([Mt,hr]);function Mi(e){let t=new F().setLogger(e.getLogger()),n=Rt(t,e);return Tr(t,e,n),t.getRoot().copy(e.getRoot(),n),t}function Tr(e,t,n){n||(n=Rt(e,t));for(let s of t.getRoot().listExtensionsUsed()){let r=e.createExtension(s.constructor);s.isRequired()&&r.setRequired(!0)}return Hn(e,t,Ir(t),n)}function Ri(e,t,n,s){let r=Er(e,t,n,s);for(let o of n)o.dispose();return r}function Er(e,t,n,s){let r=new Set;for(let o of n){if(Ar.has(o.propertyType))throw new Error(`Type "${o.propertyType}" cannot be transferred.`);yr(o,r)}return Hn(e,t,Array.from(r),s)}function Hn(e,t,n,s){s||(s=Rt(e,t));let r=new Map;for(let o of n)!r.has(o)&&o.propertyType!==Mt&&r.set(o,s(o));for(let[o,a]of r.entries())a.copy(o,s);return r}function Rt(e,t){let n=new Map([[t.getRoot(),e.getRoot()]]);return s=>{if(s.propertyType===Mt)return s;let r=n.get(s);if(!r){let o=s.constructor;r=new o(e.getGraph()),n.set(s,r)}return r}}function yr(e,t){let n=e.getGraph(),s=[e],r;for(;r=s.pop();){t.add(r);for(let o of n.listChildren(r))t.has(o)||s.push(o)}return t}function Ir(e){let t=new Set;for(let n of e.getGraph().listEdges())t.add(n.getChild());return Array.from(t)}var Sr="draco",Dt={method:"edgebreaker",encodeSpeed:5,decodeSpeed:5,quantizePosition:14,quantizeNormal:10,quantizeColor:8,quantizeTexcoord:12,quantizeGeneric:12,quantizationVolume:"mesh"};function wi(e=Dt){let t=P(Dt,e);return b(Sr,async n=>{await n.transform(Gn()),n.createExtension(We).setRequired(!0).setEncoderOptions({method:t.method==="edgebreaker"?We.EncoderMethod.EDGEBREAKER:We.EncoderMethod.SEQUENTIAL,encodeSpeed:t.encodeSpeed,decodeSpeed:t.decodeSpeed,quantizationBits:{POSITION:t.quantizePosition,NORMAL:t.quantizeNormal,COLOR:t.quantizeColor,TEX_COORD:t.quantizeTexcoord,GENERIC:t.quantizeGeneric},quantizationVolume:t.quantizationVolume})})}function jn(){var e=new fe(4);return fe!=Float32Array&&(e[0]=0,e[1]=0,e[2]=0,e[3]=0),e}function Nr(e,t,n){return e[0]=t[0]+n[0],e[1]=t[1]+n[1],e[2]=t[2]+n[2],e[3]=t[3]+n[3],e}function Mr(e,t,n){return e[0]=t[0]-n[0],e[1]=t[1]-n[1],e[2]=t[2]-n[2],e[3]=t[3]-n[3],e}function Rr(e,t,n){return e[0]=t[0]*n[0],e[1]=t[1]*n[1],e[2]=t[2]*n[2],e[3]=t[3]*n[3],e}function wr(e,t,n){return e[0]=t[0]*n,e[1]=t[1]*n,e[2]=t[2]*n,e[3]=t[3]*n,e}function Cr(e){var t=e[0],n=e[1],s=e[2],r=e[3];return Math.hypot(t,n,s,r)}var Wn=Mr,br=Rr,Xn=Cr;(function(){var e=jn();return function(t,n,s,r,o,a){var i,l;for(n||(n=4),s||(s=0),r?l=Math.min(r*n+s,t.length):l=t.length,i=s;i<l;i+=n)e[0]=t[i],e[1]=t[i+1],e[2]=t[i+2],e[3]=t[i+3],o(e,e,a),t[i]=e[0],t[i+1]=e[1],t[i+2]=e[2],t[i+3]=e[3];return t}})();var Pr=/color|emissive|diffuse/i;function Or(e){return e.getGraph().listParentEdges(e).some(r=>r.getAttributes().isColor||Pr.test(r.getName()))?"srgb":null}function Ci(e){let t=e.getGraph(),n=new Set;for(let s of t.listParentEdges(e)){let r=s.getParent(),o=s.getName()+"Info";for(let a of t.listChildEdges(r)){let i=a.getChild();i instanceof H&&a.getName()===o&&n.add(i)}}return Array.from(n)}function xr(e){let t=e.getGraph(),n=new Set,s=new Set;function r(o){let a=new Set;for(let i of t.listChildEdges(o))i.getChild()instanceof me&&a.add(i.getName()+"Info");for(let i of t.listChildEdges(o)){let l=i.getChild();n.has(l)||(n.add(l),l instanceof H&&a.has(i.getName())?s.add(l):l instanceof ht&&r(l))}}return r(e),Array.from(s)}function Kn(e){let n=F.fromGraph(e.getGraph()).getRoot(),s=e.getGraph().listParentEdges(e).filter(r=>r.getParent()!==n).map(r=>r.getName());return Array.from(new Set(s))}var ie="prune",ft=3/255,Gt={propertyTypes:[S.NODE,S.SKIN,S.MESH,S.CAMERA,S.PRIMITIVE,S.PRIMITIVE_TARGET,S.ANIMATION,S.MATERIAL,S.TEXTURE,S.ACCESSOR,S.BUFFER],keepLeaves:!1,keepAttributes:!1,keepIndices:!1,keepSolidTextures:!1,keepExtras:!1};function ne(e=Gt){let t=P(Gt,e),n=new Set(t.propertyTypes),s=t.keepExtras;return b(ie,async r=>{let o=r.getLogger(),a=r.getRoot(),i=r.getGraph(),l=new gt,g=c=>l.dispose(c.target);if(i.addEventListener("node:dispose",g),n.has(S.MESH))for(let c of a.listMeshes())c.listPrimitives().length>0||c.dispose();if(n.has(S.NODE)){if(!t.keepLeaves)for(let c of a.listScenes())Jn(i,c,s);for(let c of a.listNodes())U(c,s)}if(n.has(S.SKIN))for(let c of a.listSkins())U(c,s);if(n.has(S.MESH))for(let c of a.listMeshes())U(c,s);if(n.has(S.CAMERA))for(let c of a.listCameras())U(c,s);if(n.has(S.PRIMITIVE)&&kt(i,S.PRIMITIVE,s),n.has(S.PRIMITIVE_TARGET)&&kt(i,S.PRIMITIVE_TARGET,s),!t.keepAttributes&&n.has(S.ACCESSOR)){let c=new Map;for(let f of a.listMeshes())for(let u of f.listPrimitives()){let d=u.getMaterial();if(!d)continue;let p=Yn(r,u,d),m=vr(u,p);Bt(u,m),u.listTargets().forEach(h=>Bt(h,m)),c.has(d)?c.get(d).add(u):c.set(d,new Set([u]))}for(let[f,u]of c)$r(f,Array.from(u))}if(n.has(S.ANIMATION))for(let c of a.listAnimations()){for(let f of c.listChannels())f.getTargetNode()||f.dispose();if(c.listChannels().length)c.listSamplers().forEach(f=>U(f,s));else{let f=c.listSamplers();U(c,s),f.forEach(u=>U(u,s))}}if(n.has(S.MATERIAL)&&a.listMaterials().forEach(c=>U(c,s)),n.has(S.TEXTURE)&&(a.listTextures().forEach(c=>U(c,s)),t.keepSolidTextures||await Lr(r)),n.has(S.ACCESSOR)&&a.listAccessors().forEach(c=>U(c,s)),n.has(S.BUFFER)&&a.listBuffers().forEach(c=>U(c,s)),i.removeEventListener("node:dispose",g),l.empty())o.debug(`${ie}: No unused properties found.`);else{let c=l.entries().map(([f,u])=>`${f} (${u})`).join(", ");o.info(`${ie}: Removed types... ${c}`)}o.debug(`${ie}: Complete.`)})}var gt=class{constructor(){this.disposed={}}empty(){for(let t in this.disposed)return!1;return!0}entries(){return Object.entries(this.disposed)}dispose(t){this.disposed[t.propertyType]=this.disposed[t.propertyType]||0,this.disposed[t.propertyType]++}};function U(e,t){let n=e.listParents().filter(r=>!(r instanceof Ae||r instanceof Te)),s=t&&!xn(e.getExtras());!n.length&&!s&&e.dispose()}function kt(e,t,n){for(let s of e.listEdges()){let r=s.getParent();r.propertyType===t&&U(r,n)}}function Jn(e,t,n){if(t.listChildren().forEach(a=>Jn(e,a,n)),t instanceof wn)return;let s=e.listParentEdges(t).some(a=>{let i=a.getParent().propertyType;return i!==S.ROOT&&i!==S.SCENE&&i!==S.NODE}),r=e.listChildren(t).length===0,o=n&&!xn(t.getExtras());r&&!s&&!o&&t.dispose()}function Bt(e,t){for(let n of t)e.setAttribute(n,null)}function vr(e,t){let n=[];for(let s of e.listSemantics())(s==="NORMAL"&&!t.has(s)||s==="TANGENT"&&!t.has(s)||s.startsWith("TEXCOORD_")&&!t.has(s)||s.startsWith("COLOR_")&&s!=="COLOR_0")&&n.push(s);return n}function Yn(e,t,n,s=new Set){let o=e.getGraph().listChildEdges(n),a=new Set;for(let g of o)g.getChild()instanceof me&&a.add(g.getName());for(let g of o){let c=g.getName(),f=g.getChild();f instanceof H&&a.has(c.replace(/Info$/,""))&&s.add(`TEXCOORD_${f.getTexCoord()}`),f instanceof me&&c.match(/normalTexture/i)&&s.add("TANGENT"),f instanceof ht&&Yn(e,t,f,s)}let i=n instanceof $e&&!n.getExtension("KHR_materials_unlit"),l=t.getMode()===v.Mode.POINTS;return i&&!l&&s.add("NORMAL"),s}function $r(e,t){let n=xr(e),s=new Set(n.map(l=>l.getTexCoord())),r=Array.from(s).sort(),o=new Map(r.map((l,g)=>[l,g])),a=new Map(r.map((l,g)=>[`TEXCOORD_${l}`,`TEXCOORD_${g}`]));for(let l of n){let g=l.getTexCoord();l.setTexCoord(o.get(g))}for(let l of t){let g=l.listSemantics().filter(c=>c.startsWith("TEXCOORD_")).sort();i(l,g),l.listTargets().forEach(c=>i(c,g))}function i(l,g){for(let c of g){let f=l.getAttribute(c);if(!f)continue;let u=a.get(c);u!==c&&(l.setAttribute(u,f),l.setAttribute(c,null))}}}async function Lr(e){let t=e.getRoot(),n=e.getGraph(),s=e.getLogger(),o=t.listTextures().map(async a=>{var i;let l=await zr(a);if(!l)return;Or(a)==="srgb"&&Le.convertSRGBToLinear(l,l);let g=a.getName()||a.getURI(),c=(i=a.getSize())==null?void 0:i.join("x"),f=Kn(a);for(let u of n.listParentEdges(a)){let d=u.getParent();d!==t&&_r(d,l,u.getName(),s)&&u.dispose()}a.listParents().length===1&&(a.dispose(),s.debug(`${ie}: Removed solid-color texture "${g}" (${c}px ${f.join(", ")})`))});await Promise.all(o)}function _r(e,t,n,s){if(e instanceof $e)switch(n){case"baseColorTexture":return e.setBaseColorFactor(br(t,t,e.getBaseColorFactor())),!0;case"emissiveTexture":return e.setEmissiveFactor(Qs([0,0,0],t.slice(0,3),e.getEmissiveFactor())),!0;case"occlusionTexture":return Math.abs(t[0]-1)<=ft;case"metallicRoughnessTexture":return e.setRoughnessFactor(t[1]*e.getRoughnessFactor()),e.setMetallicFactor(t[2]*e.getMetallicFactor()),!0;case"normalTexture":return Xn(Wn(jn(),t,[.5,.5,1,1]))<=ft}return s.warn(`${ie}: Detected single-color ${n} texture. Pruning ${n} not yet supported.`),!1}async function zr(e){let t=await Fr(e);if(!t)return null;let n=[1/0,1/0,1/0,1/0],s=[-1/0,-1/0,-1/0,-1/0],r=[0,0,0,0],[o,a]=t.shape;for(let i=0;i<o;i++){for(let l=0;l<a;l++)for(let g=0;g<4;g++)n[g]=Math.min(n[g],t.get(i,l,g)),s[g]=Math.max(s[g],t.get(i,l,g));if(Xn(Wn(r,s,n))/255>ft)return null}return wr(r,Nr(r,s,n),.5/255)}async function Fr(e){try{return await At(e.getImage(),e.getMimeType())}catch{return null}}var Ye="flatten",qt={cleanup:!0};function bi(e=qt){let t=P(qt,e);return b(Ye,async n=>{let s=n.getRoot(),r=n.getLogger(),o=new Set;for(let g of s.listSkins())for(let c of g.listJoints())o.add(c);let a=new Set;for(let g of s.listAnimations())for(let c of g.listChannels()){let f=c.getTargetNode();f&&c.getTargetPath()!=="weights"&&a.add(f)}let i=new Set,l=new Set;for(let g of s.listScenes())g.traverse(c=>{let f=c.getParentNode();f&&((o.has(f)||i.has(f))&&i.add(c),(a.has(f)||l.has(f))&&l.add(c))});for(let g of s.listScenes())g.traverse(c=>{a.has(c)||i.has(c)||l.has(c)||Ds(c)});a.size&&r.debug(`${Ye}: Flattening node hierarchies with TRS animation not yet supported.`),t.cleanup&&await n.transform(ne({propertyTypes:[S.NODE],keepLeaves:!1})),r.debug(`${Ye}: Complete.`)})}function Pi(e){return mt(e)}function Oi(e){return{scenes:Ur(e),meshes:Dr(e),materials:Gr(e),textures:kr(e),animations:Br(e)}}function Ur(e){return{properties:e.getRoot().listScenes().map(n=>{let s=n.listChildren()[0],r=mt(n);return{name:n.getName(),rootName:s?s.getName():"",bboxMin:Vt(r.min),bboxMax:Vt(r.max),renderVertexCount:Ke(n,R.RENDER),uploadVertexCount:Ke(n,R.UPLOAD),uploadNaiveVertexCount:Ke(n,R.UPLOAD_NAIVE)}})}}function Dr(e){return{properties:e.getRoot().listMeshes().map(n=>{let s=n.listParents().filter(c=>c.propertyType!==S.ROOT).length,r=0,o=new Set,a=new Set,i=new Set;n.listPrimitives().forEach(c=>{for(let u of c.listSemantics()){let d=c.getAttribute(u);o.add(u+":"+Ht(d)),i.add(d)}for(let u of c.listTargets())u.listAttributes().forEach(d=>i.add(d));let f=c.getIndices();f&&(a.add(Ht(f)),i.add(f)),r+=Tt(c)});let l=0;Array.from(i).forEach(c=>l+=c.getArray().byteLength);let g=n.listPrimitives().map(c=>qr[c.getMode()]);return{name:n.getName(),mode:Array.from(new Set(g)),meshPrimitives:n.listPrimitives().length,glPrimitives:r,vertices:xe(n,R.UPLOAD),indices:Array.from(a).sort(),attributes:Array.from(o).sort(),instances:s,size:l}})}}function Gr(e){return{properties:e.getRoot().listMaterials().map(n=>{let s=n.listParents().filter(a=>a.propertyType!==S.ROOT).length,r=new Set(n.listExtensions()),o=e.getGraph().listEdges().filter(a=>{let i=a.getChild(),l=a.getParent();return!!(i instanceof me&&l===n||i instanceof me&&l instanceof ht&&r.has(l))}).map(a=>a.getName());return{name:n.getName(),instances:s,textures:o,alphaMode:n.getAlphaMode(),doubleSided:n.getDoubleSided()}})}}function kr(e){return{properties:e.getRoot().listTextures().map(n=>{let s=n.listParents().filter(i=>i.propertyType!==S.ROOT).length,r=e.getGraph().listParentEdges(n).filter(i=>i.getParent().propertyType!==S.ROOT).map(i=>i.getName()),o=he.getSize(n.getImage(),n.getMimeType()),a="";if(n.getMimeType()==="image/ktx2"){let l=Ss(n.getImage()).dataFormatDescriptor[0];l.colorModel===Ns?a="ETC1S":l.colorModel===Ms&&(a="UASTC")}return{name:n.getName(),uri:n.getURI(),slots:Array.from(new Set(r)),instances:s,mimeType:n.getMimeType(),compression:a,resolution:o?o.join("x"):"",size:n.getImage().byteLength,gpuSize:he.getVRAMByteLength(n.getImage(),n.getMimeType())}})}}function Br(e){return{properties:e.getRoot().listAnimations().map(n=>{let s=1/0,r=-1/0;n.listSamplers().forEach(l=>{let g=l.getInput();g&&(s=Math.min(s,g.getMin([])[0]),r=Math.max(r,g.getMax([])[0]))});let o=0,a=0,i=new Set;return n.listSamplers().forEach(l=>{let g=l.getInput(),c=l.getOutput();g&&(a+=g.getCount(),i.add(g),c&&i.add(c))}),Array.from(i).forEach(l=>{o+=l.getArray().byteLength}),{name:n.getName(),channels:n.listChannels().length,samplers:n.listSamplers().length,duration:Math.round((r-s)*1e3)/1e3,keyframes:a,size:o}})}}var qr=["POINTS","LINES","LINE_LOOP","LINE_STRIP","TRIANGLES","TRIANGLE_STRIP","TRIANGLE_FAN"],Vr={Float32Array:"f32",Uint32Array:"u32",Uint16Array:"u16",Uint8Array:"u8",Int32Array:"i32",Int16Array:"i16",Int8Array:"i8"};function Vt(e){for(let t=0;t<e.length;t++)e[t].toFixed&&(e[t]=Number(e[t].toFixed(5)));return e}function Ht(e){let t=e.getArray(),n=Vr[t.constructor.name]||"?",s=e.getNormalized()?"_norm":"";return n+s}var Y="instance",jt={min:5};function xi(e=jt){let t=P(jt,e);return b(Y,n=>{let s=n.getLogger(),r=n.getRoot();if(r.listAnimations().length){s.warn(`${Y}: Instancing is not currently supported for animated models.`),s.debug(`${Y}: Complete.`);return}let o=n.createExtension(Pn),a=0,i=0;for(let l of r.listScenes()){let g=new Map;l.traverse(f=>{let u=f.getMesh();u&&(f.getExtension("EXT_mesh_gpu_instancing")||g.set(u,(g.get(u)||new Set).add(f)))});let c=[];for(let f of Array.from(g.keys())){let u=Array.from(g.get(f));if(u.length<t.min||u.some(y=>y.getSkin())||f.listPrimitives().some(jr)&&u.some(Wr))continue;let d=Xr(n,o,f,u.length),p=d.getAttribute("TRANSLATION"),m=d.getAttribute("ROTATION"),h=d.getAttribute("SCALE"),E=n.createNode().setMesh(f).setExtension("EXT_mesh_gpu_instancing",d);l.addChild(E);let A=!1,T=!1,I=!1;for(let y=0;y<u.length;y++){let N,x,$,_=u[y];p.setElement(y,N=_.getWorldTranslation()),m.setElement(y,x=_.getWorldRotation()),h.setElement(y,$=_.getWorldScale()),w.eq(N,[0,0,0])||(A=!0),w.eq(x,[0,0,0,1])||(T=!0),w.eq($,[1,1,1])||(I=!0)}if(A||p.dispose(),T||m.dispose(),I||h.dispose(),!A&&!T&&!I){E.dispose(),d.dispose();continue}for(let y of u)y.setMesh(null),c.push(y);a++,i+=u.length}Hr(c,s)}a>0?s.info(`${Y}: Created ${a} batches, with ${i} total instances.`):s.info(`${Y}: No meshes with >=${t.min} parent nodes were found.`),o.listProperties().length===0&&o.dispose(),s.debug(`${Y}: Complete.`)})}function Hr(e,t){let n,s=0;for(;n=e.pop();){if(n.listChildren().length||n.getCamera()||n.getMesh()||n.getSkin()||n.listExtensions().length)continue;let r=n.getParentNode();r&&e.push(r),n.dispose(),s++}t.debug(`${Y}: Removed ${s} unused nodes.`)}function jr(e){let t=e.getMaterial();return!!(t&&t.getExtension("KHR_materials_volume"))}function Wr(e){let t=e.getWorldScale();return!w.eq(t,[1,1,1])}function Xr(e,t,n,s){let r=n.listPrimitives()[0].getAttribute("POSITION").getBuffer(),o=e.createAccessor().setType("VEC3").setArray(new Float32Array(3*s)).setBuffer(r),a=e.createAccessor().setType("VEC4").setArray(new Float32Array(4*s)).setBuffer(r),i=e.createAccessor().setType("VEC3").setArray(new Float32Array(3*s)).setBuffer(r);return t.createInstancedMesh().setAttribute("TRANSLATION",o).setAttribute("ROTATION",a).setAttribute("SCALE",i)}var Kr={skipValidation:!1},Wt=2**32-1,{LINE_STRIP:Jr,LINE_LOOP:Yr,TRIANGLE_STRIP:Qr,TRIANGLE_FAN:Zr}=v.Mode;function eo(e,t={}){let n=P(Kr,t),s=e[0],r=F.fromGraph(s.getGraph());if(!n.skipValidation&&new Set(e.map(vn)).size>1)throw new Error("Requires >=2 Primitives, sharing the same Material and Mode, with compatible vertex attributes and indices.");for(let d of e)switch(d.getMode()){case Jr:case Yr:lr(d);break;case Qr:case Zr:Bn(d);break}let o=[],a=new Uint32Array(e.length),i=0,l=0;for(let d=0;d<e.length;d++){let p=e[d],m=p.getIndices(),h=p.getAttribute("POSITION").getCount(),E=m?m.getArray():null,A=m?m.getCount():h,T=new Uint32Array(h).fill(Wt);for(let I=0;I<A;I++){let y=E?E[I]:I;T[y]===Wt&&(T[y]=i++,a[d]++)}o.push(T),l+=A}let g=r.createPrimitive().setMode(s.getMode()).setMaterial(s.getMaterial());for(let d of s.listSemantics()){let p=s.getAttribute(d),m=ke[p.getComponentType()],h=G(r,p).setArray(new m(i*p.getElementSize()));g.setAttribute(d,h)}let c=s.getIndices(),f=c?G(r,c).setArray(Et(l,i)):null;g.setIndices(f);let u=0;for(let d=0;d<o.length;d++){let p=e[d],m=p.getIndices(),h=m?m.getCount():-1,E=o[d];m&&f&&(no(m,E,f,u),u+=h);for(let A of g.listSemantics()){let T=p.getAttribute(A),I=g.getAttribute(A);to(T,m,E,I)}}return g}function to(e,t,n,s){let r=e.getElementSize(),o=t?t.getArray():null,a=e.getCount(),i=e.getArray(),l=s.getArray(),g=new Uint8Array(e.getCount());for(let c=0,f=t?t.getCount():a;c<f;c++){let u=o?o[c]:c,d=n[u];if(!g[d]){for(let p=0;p<r;p++)l[d*r+p]=i[u*r+p];g[d]=1}}}function no(e,t,n,s){let r=e.getCount(),o=e.getArray(),a=n.getArray();for(let i=0;i<r;i++){let l=o[i],g=t[l];a[s+i]=g}}var ut="join",{ROOT:so,NODE:ro,MESH:oo,PRIMITIVE:io,ACCESSOR:ao}=S,Qe=[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],Xt={keepMeshes:!1,keepNamed:!1,cleanup:!0,filter:()=>!0};function vi(e=Xt){let t=P(Xt,e);return b(ut,async n=>{let s=n.getRoot(),r=n.getLogger();for(let o of s.listScenes())Kt(n,o,t),o.traverse(a=>Kt(n,a,t));t.cleanup&&await n.transform(ne({propertyTypes:[ro,oo,io,ao],keepAttributes:!0,keepIndices:!0,keepLeaves:!1})),r.debug(`${ut}: Complete.`)})}function Kt(e,t,n){let s=e.getLogger(),r={},o=t.listChildren();for(let l=0;l<o.length;l++){let g=o[l];if(!n.filter(g)||g.listParents().some(u=>u instanceof Te))continue;let f=g.getMesh();if(f&&!g.getExtension("EXT_mesh_gpu_instancing")&&!g.getSkin())for(let u of f.listPrimitives()){if(u.listTargets().length>0)continue;let d=u.getMaterial();if(d&&d.getExtension("KHR_materials_volume"))continue;te(u),lo(u);let p=vn(u),m=f.getName()||g.getName();(n.keepMeshes||n.keepNamed&&m)&&(p+=`|${l}`),p in r||(r[p]={prims:[],primMeshes:[],primNodes:[],dstNode:g,dstMesh:void 0});let h=r[p];h.prims.push(u),h.primNodes.push(g)}}let a=Object.values(r).filter(({prims:l})=>l.length>1),i=new Set(a.flatMap(l=>l.primNodes));for(let l of i){let g=l.getMesh();g.listParents().some(f=>f.propertyType!==so&&l!==f)&&l.setMesh(g.clone())}for(let l of a){let{dstNode:g,primNodes:c}=l;l.dstMesh=g.getMesh(),l.primMeshes=c.map(f=>f.getMesh())}for(let l of a){let{prims:g,primNodes:c,primMeshes:f,dstNode:u,dstMesh:d}=l,p=u.getMatrix();for(let E=0;E<g.length;E++){let A=c[E],T=f[E],I=g[E];T.removePrimitive(I),Q(I)&&(I=g[E]=co(g[E])),A!==u&&(ye(Qe,zn(Qe,p),A.getMatrix()),kn(I,Qe))}let m=eo(g),h=m.listAttributes()[0].getCount();d.addPrimitive(m),s.debug(`${ut}: Joined Primitives (${g.length}) containing ${rt(h)} vertices under Node "${u.getName()}".`)}}function co(e){let t=e.clone();for(let s of t.listSemantics())t.setAttribute(s,t.getAttribute(s).clone());let n=t.getIndices();return n&&t.setIndices(n.clone()),t}function lo(e){for(let t of["POSITION","NORMAL","TANGENT"]){let n=e.getAttribute(t);n&&lt(n)}}function $i(e){let t=Qn(e),n=[];return t&k.R&&n.push(k.R),t&k.G&&n.push(k.G),t&k.B&&n.push(k.B),t&k.A&&n.push(k.A),n}function Qn(e){let t=F.fromGraph(e.getGraph()),n=0;for(let s of t.getGraph().listParentEdges(e)){let r=s.getParent(),{channels:o}=s.getAttributes();if(o&&s.getName()==="baseColorTexture"&&r instanceof $e&&r.getAlphaMode()===$e.AlphaMode.OPAQUE&&(o&=~k.A),o){n|=o;continue}r.propertyType!==S.ROOT&&t.getLogger().warn(`Missing attribute ".channels" on edge, "${s.getName()}".`)}return n}function fo(e,t=1/0){if(Number.isFinite(t)&&t%4||t<=0)throw new Error("Limit must be positive multiple of four.");let n=e.getAttribute("POSITION").getCount(),s=e.listSemantics().filter(g=>g.startsWith("WEIGHTS_")).length,r=new Uint16Array(s*4),o=new Float32Array(s*4),a=new Float32Array(s*4),i=new Uint32Array(s*4),l=new Uint32Array(s*4);for(let g=0;g<n;g++){Ue(e,g,"WEIGHTS",o),Ue(e,g,"JOINTS",i);for(let c=0;c<s*4;c++)r[c]=c;r.sort((c,f)=>o[c]>o[f]?-1:1);for(let c=0;c<r.length;c++)a[c]=o[r[c]],l[c]=i[r[c]];De(e,g,"WEIGHTS",a),De(e,g,"JOINTS",l)}for(let g=s;g*4>t;g--){let c=e.getAttribute(`WEIGHTS_${g-1}`),f=e.getAttribute(`JOINTS_${g-1}`);e.setAttribute(`WEIGHTS_${g-1}`,null),e.setAttribute(`JOINTS_${g-1}`,null),c.listParents().length===1&&c.dispose(),f.listParents().length===1&&f.dispose()}go(e)}function go(e){if(!uo(e))return;let t=e.getAttribute("POSITION").getCount(),n=e.listSemantics().filter(f=>f.startsWith("WEIGHTS_")).length,s=e.getAttribute("WEIGHTS_0"),r=s.getArray(),o=s.getComponentType(),a=s.getNormalized(),i=a?o:void 0,l=a?w.decodeNormalizedInt(1,o):Number.EPSILON,g=new Uint32Array(n*4).fill(0),c=r.slice(0,n*4).fill(0);for(let f=0;f<t;f++){Ue(e,f,"JOINTS",g),Ue(e,f,"WEIGHTS",c,i);let u=Jt(c,i);if(u!==0&&u!==1){if(Math.abs(1-u)>l)for(let d=0;d<c.length;d++)if(a){let p=w.decodeNormalizedInt(c[d],o);c[d]=w.encodeNormalizedInt(p/u,o)}else c[d]/=u;if(u=Jt(c,i),a&&u!==1){for(let d=c.length-1;d>=0;d--)if(c[d]>0){let p=1-u;c[d]+=Math.sign(p)*w.encodeNormalizedInt(Math.abs(p),o);break}}}for(let d=c.length-1;d>=0;d--)c[d]===0&&(g[d]=0);De(e,f,"JOINTS",g),De(e,f,"WEIGHTS",c,i)}}function Ue(e,t,n,s,r){let o,a=[0,0,0,0];for(let i=0;o=e.getAttribute(`${n}_${i}`);i++){o.getElement(t,a);for(let l=0;l<4;l++)r?s[i*4+l]=w.encodeNormalizedInt(a[l],r):s[i*4+l]=a[l]}return s}function De(e,t,n,s,r){let o,a=[0,0,0,0];for(let i=0;o=e.getAttribute(`${n}_${i}`);i++){for(let l=0;l<4;l++)r?a[l]=w.decodeNormalizedInt(s[i*4+l],r):a[l]=s[i*4+l];o.setElement(t,a)}}function Jt(e,t){let n=0;for(let s=0;s<e.length;s++)t?n+=w.decodeNormalizedInt(e[s],t):n+=e[s];return n}function uo(e){let t=e.listSemantics().filter(r=>r.startsWith("WEIGHTS_")).map(r=>e.getAttribute(r)),n=t.map(r=>r.getNormalized()),s=t.map(r=>r.getComponentType());return new Set(n).size===1&&new Set(s).size===1}var K="quantize",po=[Int8Array,Int16Array,Int32Array],{TRANSLATION:mo,ROTATION:ho,SCALE:Ao,WEIGHTS:To}=Te.TargetPath,Eo=[mo,ho,Ao],ve={pattern:/.*/,quantizationVolume:"mesh",quantizePosition:14,quantizeNormal:10,quantizeTexcoord:12,quantizeColor:8,quantizeWeight:8,quantizeGeneric:12,normalizeWeights:!0,cleanup:!0};function yo(e=ve){let t=P(ve,D({patternTargets:e.pattern||ve.pattern},e));return b(K,async n=>{let s=n.getLogger(),r=n.getRoot(),o;t.quantizationVolume==="scene"&&(o=Qt(bo(r.listMeshes().map(Zt))));for(let i of n.getRoot().listMeshes()){t.quantizationVolume==="mesh"&&(o=Qt(Zt(i))),o&&t.pattern.test("POSITION")&&(Io(n,i,o),Mo(i,1/o.scale));for(let l of i.listPrimitives()){let g=B(l,R.RENDER),c=B(l,R.UPLOAD);g<c/2&&te(l),Yt(n,l,o,t);for(let f of l.listTargets())Yt(n,f,o,t)}}r.listMeshes().flatMap(i=>i.listPrimitives()).some(Zn)&&n.createExtension(bn).setRequired(!0),t.cleanup&&await n.transform(ne({propertyTypes:[S.ACCESSOR,S.SKIN,S.MATERIAL],keepAttributes:!0,keepIndices:!0,keepLeaves:!0,keepSolidTextures:!0}),qn({propertyTypes:[S.ACCESSOR,S.MATERIAL,S.SKIN],keepUniqueNames:!0})),s.debug(`${K}: Complete.`)})}function Yt(e,t,n,s){let r=t instanceof ds,o=e.getLogger();for(let a of t.listSemantics()){if(!r&&!s.pattern.test(a)||r&&!s.patternTargets.test(a))continue;let i=t.getAttribute(a),{bits:l,ctor:g}=wo(a,i,o,s);if(!g)continue;if(l<8||l>16)throw new Error(`${K}: Requires bits = 8\u201316.`);if(i.getComponentSize()<=l/8)continue;let c=i.clone();if(a==="POSITION"){let f=n.scale,u=[];t instanceof v?zn(u,He(n)):ks(u,[1/f,1/f,1/f]);for(let d=0,p=[0,0,0],m=c.getCount();d<m;d++)c.getElement(d,p),c.setElement(d,Dn(p,p,u))}Ro(c,g,l),t.setAttribute(a,c)}if(s.normalizeWeights&&t.getAttribute("WEIGHTS_0")&&fo(t,1/0),t instanceof v&&t.getIndices()&&t.listAttributes().length&&t.listAttributes()[0].getCount()<65535){let a=t.getIndices();a.setArray(new Uint16Array(a.getArray()))}}function Qt(e){let{min:t,max:n}=e,s=Math.max((n[0]-t[0])/2,(n[1]-t[1])/2,(n[2]-t[2])/2);return{offset:[t[0]+(n[0]-t[0])/2,t[1]+(n[1]-t[1])/2,t[2]+(n[2]-t[2])/2],scale:s}}function Io(e,t,n){let s=He(n);for(let r of t.listParents()){if(!(r instanceof Cn))continue;let o=r.listParents().filter(u=>u instanceof Te),a=o.some(u=>Eo.includes(u.getTargetPath())),i=r.listChildren().length>0,l=r.getSkin();if(l){r.setSkin(So(l,n));continue}let g=r.getExtension("EXT_mesh_gpu_instancing");if(g){r.setExtension("EXT_mesh_gpu_instancing",No(e,g,n));continue}let c;i||a?(c=e.createNode("").setMesh(t),r.addChild(c).setMesh(null),o.filter(u=>u.getTargetPath()===To).forEach(u=>u.setTargetNode(c))):c=r;let f=c.getMatrix();ye(f,f,s),c.setMatrix(f)}}function So(e,t){e=e.clone();let n=He(t),s=e.getInverseBindMatrices().clone(),r=[];for(let o=0,a=s.getCount();o<a;o++)s.getElement(o,r),ye(r,r,n),s.setElement(o,r);return e.setInverseBindMatrices(s)}function No(e,t,n){var s,r,o;if(!t.getAttribute("TRANSLATION")&&!t.getAttribute("ROTATION")&&!t.getAttribute("SCALE"))return t;t=t.clone();let a=(s=t.getAttribute("TRANSLATION"))==null?void 0:s.clone(),i=(r=t.getAttribute("ROTATION"))==null?void 0:r.clone(),l=(o=t.getAttribute("SCALE"))==null?void 0:o.clone(),g=a||i||l,c=[0,0,0],f=[0,0,0,1],u=[1,1,1];!a&&n.offset&&(a=e.createAccessor().setType("VEC3").setArray(tn(g.getCount(),c))),!l&&n.scale&&(l=e.createAccessor().setType("VEC3").setArray(tn(g.getCount(),u)));let d=[0,0,0],p=[0,0,0,1],m=[1,1,1],h=[1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1],E=He(n);for(let A=0,T=g.getCount();A<T;A++)w.compose(a?a.getElement(A,d):c,i?i.getElement(A,p):f,l?l.getElement(A,m):u,h),ye(h,h,E),w.decompose(h,d,p,m),a&&a.setElement(A,d),i&&i.setElement(A,p),l&&l.setElement(A,m);return a&&t.setAttribute("TRANSLATION",a),i&&t.setAttribute("ROTATION",i),l&&t.setAttribute("SCALE",l),t}function Mo(e,t){for(let n of e.listPrimitives()){let s=n.getMaterial();if(!s)continue;let r=s.getExtension("KHR_materials_volume");!r||r.getThicknessFactor()<=0||(r=r.clone().setThicknessFactor(r.getThicknessFactor()*t),s=s.clone().setExtension("KHR_materials_volume",r),n.setMaterial(s))}}function Ro(e,t,n){let s=new t(e.getArray().length),r=po.includes(t)?1:0,o=n-r,a=t.BYTES_PER_ELEMENT*8-r,i=Math.pow(2,o)-1,l=a-o,g=2*o-a,c=[r>0?-1:0,1];for(let f=0,u=0,d=[];f<e.getCount();f++){e.getElement(f,d);for(let p=0;p<d.length;p++){let m=Po(d[p],c);m=Math.round(Math.abs(m)*i),m=m<<l|m>>g,s[u++]=m*Math.sign(d[p])}}e.setArray(s).setNormalized(!0).setSparse(!1)}function wo(e,t,n,s){let r=t.getMinNormalized([]),o=t.getMaxNormalized([]),a,i;if(e==="POSITION")a=s.quantizePosition,i=a<=8?Int8Array:Int16Array;else if(e==="NORMAL"||e==="TANGENT")a=s.quantizeNormal,i=a<=8?Int8Array:Int16Array;else if(e.startsWith("COLOR_"))a=s.quantizeColor,i=a<=8?Uint8Array:Uint16Array;else if(e.startsWith("TEXCOORD_")){if(r.some(l=>l<0)||o.some(l=>l>1))return n.warn(`${K}: Skipping ${e}; out of [0,1] range.`),{bits:-1};a=s.quantizeTexcoord,i=a<=8?Uint8Array:Uint16Array}else{if(e.startsWith("JOINTS_"))return a=Math.max(...t.getMax([]))<=255?8:16,i=a<=8?Uint8Array:Uint16Array,t.getComponentSize()>a/8&&t.setArray(new i(t.getArray())),{bits:-1};if(e.startsWith("WEIGHTS_")){if(r.some(l=>l<0)||o.some(l=>l>1))return n.warn(`${K}: Skipping ${e}; out of [0,1] range.`),{bits:-1};a=s.quantizeWeight,i=a<=8?Uint8Array:Uint16Array}else if(e.startsWith("_")){if(r.some(l=>l<-1)||o.some(l=>l>1))return n.warn(`${K}: Skipping ${e}; out of [-1,1] range.`),{bits:-1};a=s.quantizeGeneric,i=r.some(l=>l<0)?i=a<=8?Int8Array:Int16Array:i=a<=8?Uint8Array:Uint16Array}else throw new Error(`${K}: Unexpected semantic, "${e}".`)}return{bits:a,ctor:i}}function Zt(e){let t=[],n=[];for(let r of e.listPrimitives()){let o=r.getAttribute("POSITION");o&&t.push(o);for(let a of r.listTargets()){let i=a.getAttribute("POSITION");i&&n.push(i)}}if(t.length===0)throw new Error(`${K}: Missing "POSITION" attribute.`);let s=en(t,3);if(n.length>0){let{min:r,max:o}=en(n,3);it(s.min,s.min,it(r,vt(r,r,2),[0,0,0])),at(s.max,s.max,at(o,vt(o,o,2),[0,0,0]))}return s}function Co(e,t){let n=t.getComponentSize();if(e==="POSITION"||e==="NORMAL"||e==="TANGENT")return n<4;if(e.startsWith("TEXCOORD_")){let s=t.getComponentType(),r=t.getNormalized();return n<4&&!(r&&s===le.ComponentType.UNSIGNED_BYTE)&&!(r&&s===le.ComponentType.UNSIGNED_SHORT)}return!1}function Zn(e){for(let t of e.listSemantics()){let n=e.getAttribute("POSITION");if(Co(t,n))return!0}return e.propertyType===S.PRIMITIVE?e.listTargets().some(Zn):!1}function en(e,t){let n=new Array(t).fill(1/0),s=new Array(t).fill(-1/0),r=[],o=[];for(let a of e){a.getMinNormalized(r),a.getMaxNormalized(o);for(let i=0;i<t;i++)n[i]=Math.min(n[i],r[i]),s[i]=Math.max(s[i],o[i])}return{min:n,max:s}}function bo(e){let t=e[0];for(let n of e)it(t.min,t.min,n.min),at(t.max,t.max,n.max);return t}function He(e){return Bs([],[0,0,0,1],e.offset,[e.scale,e.scale,e.scale])}function Po(e,t){return Math.min(Math.max(e,t[0]),t[1])}function tn(e,t){let n=t.length,s=new Float32Array(e*n);for(let r=0;r<e;r++)s.set(t,r*n);return s}var Me="reorder",Oo={target:"size",cleanup:!0};function xo(e){let t=P(Oo,e),n=t.encoder;if(!n)throw new Error(`${Me}: encoder dependency required \u2014 install "meshoptimizer".`);return b(Me,async s=>{let r=s.getLogger();await n.ready;let o=vo(s);for(let a of o.indicesToAttributes.keys()){let i=a.getArray();i instanceof Uint32Array?i=i.slice():i=new Uint32Array(i);let[l,g]=n.reorderMesh(i,o.indicesToMode.get(a)===v.Mode.TRIANGLES,t.target==="size"),c=G(s,a);c.setArray(g<=65534?new Uint16Array(i):i);for(let f of o.indicesToAttributes.get(a)){let u=G(s,f);_e(f,a,l,u,g);for(let d of o.indicesToPrimitives.get(a)){d.getIndices()===a&&d.swap(a,c),d.swap(f,u);for(let p of d.listTargets())p.swap(f,u)}}}t.cleanup&&await s.transform(ne({propertyTypes:[S.ACCESSOR],keepAttributes:!0,keepIndices:!0})),o.indicesToAttributes.size?r.debug(`${Me}: Complete.`):r.warn(`${Me}: No qualifying primitives found; may need to weld first.`)})}function vo(e){let t=new Map,n=new de,s=new de,r=new de;for(let o of e.getRoot().listMeshes())for(let a of o.listPrimitives()){let i=a.getIndices();if(i){t.set(i,a.getMode()),n.add(i,a);for(let l of Ee(a))s.add(i,l),r.add(l,a)}}return{indicesToPrimitives:n,indicesToAttributes:s,indicesToMode:t,attributesToPrimitives:r}}var $o=D({level:"high"},ve),nn="meshopt";function Li(e){let t=P($o,e),n=t.encoder;if(!n)throw new Error(`${nn}: encoder dependency required \u2014 install "meshoptimizer".`);return b(nn,async s=>{let r,o,a=t.quantizeNormal;s.getRoot().listAccessors().length!==0&&(t.level==="medium"?(r=/.*/,o=/.*/):(r=/^(POSITION|TEXCOORD|JOINTS|WEIGHTS|COLOR)(_\d+)?$/,o=/^(POSITION|TEXCOORD|JOINTS|WEIGHTS|COLOR|NORMAL|TANGENT)(_\d+)?$/,a=Math.min(a,8)),await s.transform(xo({encoder:n,target:"size"}),yo(D({},t,{pattern:r,patternTargets:o,quantizeNormal:a}))),s.createExtension(Xe).setRequired(!0).setEncoderOptions({method:t.level==="medium"?Xe.EncoderMethod.QUANTIZE:Xe.EncoderMethod.FILTER}))})}var Ze="metalRough",Lo={};function _i(e=Lo){return b(Ze,async t=>{let n=t.getLogger();if(!t.getRoot().listExtensionsUsed().map(l=>l.extensionName).includes("KHR_materials_pbrSpecularGlossiness")){n.warn(`${Ze}: KHR_materials_pbrSpecularGlossiness not found on document.`);return}let r=t.createExtension(hs),o=t.createExtension(As),a=t.createExtension(Ts),i=new Set;for(let l of t.getRoot().listMaterials()){let g=l.getExtension("KHR_materials_pbrSpecularGlossiness");if(!g)continue;let c=o.createSpecular().setSpecularFactor(1).setSpecularColorFactor(g.getSpecularFactor());i.add(g.getSpecularGlossinessTexture()),i.add(l.getBaseColorTexture()),i.add(l.getMetallicRoughnessTexture()),l.setBaseColorFactor(g.getDiffuseFactor()).setMetallicFactor(0).setRoughnessFactor(1).setExtension("KHR_materials_ior",r.createIOR().setIOR(1e3)).setExtension("KHR_materials_specular",c);let f=g.getDiffuseTexture();f&&(l.setBaseColorTexture(f),l.getBaseColorTextureInfo().copy(g.getDiffuseTextureInfo()));let u=g.getSpecularGlossinessTexture();if(u){let d=g.getSpecularGlossinessTextureInfo(),p=t.createTexture();await bt(u,p,(E,A,T)=>{E.set(A,T,3,255)}),c.setSpecularTexture(p),c.setSpecularColorTexture(p),c.getSpecularTextureInfo().copy(d),c.getSpecularColorTextureInfo().copy(d);let m=g.getGlossinessFactor(),h=t.createTexture();await bt(u,h,(E,A,T)=>{let I=255-Math.round(E.get(A,T,3)*m);E.set(A,T,0,0),E.set(A,T,1,I),E.set(A,T,2,0),E.set(A,T,3,255)}),l.setMetallicRoughnessTexture(h),l.getMetallicRoughnessTextureInfo().copy(d)}else c.setSpecularColorFactor(g.getSpecularFactor()),l.setRoughnessFactor(1-g.getGlossinessFactor());l.setExtension("KHR_materials_pbrSpecularGlossiness",null)}a.dispose();for(let l of i)l&&l.listParents().length===1&&l.dispose();n.debug(`${Ze}: Complete.`)})}var dt="unweld",_o={};function zo(e=_o){return b(dt,t=>{let n=t.getLogger(),s=new Map;for(let r of t.getRoot().listMeshes())for(let o of r.listPrimitives())es(o,s);n.debug(`${dt}: Complete.`)})}function es(e,t=new Map){let n=e.getIndices();if(!n)return;let s=e.getGraph(),r=F.fromGraph(s),o=r.getLogger(),a=e.getAttribute("POSITION").getCount();for(let l of e.listAttributes())e.swap(l,sn(r,l,n,t)),l.listParents().length===1&&l.dispose();for(let l of e.listTargets())for(let g of l.listAttributes())l.swap(g,sn(r,g,n,t)),g.listParents().length===1&&g.dispose();let i=e.getAttribute("POSITION").getCount();o.debug(`${dt}: ${Be(a,i)} vertices.`),e.setIndices(null),n.listParents().length===1&&n.dispose()}function sn(e,t,n,s){if(s.has(t)&&s.get(t).has(n))return s.get(t).get(n);let r=t.getArray(),o=r.constructor,a=new o(n.getCount()*t.getElementSize()),i=n.getArray(),l=t.getElementSize();for(let c=0,f=n.getCount();c<f;c++)for(let u=0;u<l;u++)a[c*l+u]=r[i[c]*l+u];s.has(t)||s.set(t,new Map);let g=G(e,t).setArray(a);return s.get(t).set(n,g),g}var Re="normals",rn={overwrite:!1};function zi(e=rn){let t=P(rn,e);return b(Re,async n=>{let s=n.getLogger(),r=0;await n.transform(zo());for(let o of n.getRoot().listMeshes())for(let a of o.listPrimitives()){let i=a.getAttribute("POSITION"),l=a.getAttribute("NORMAL");if(t.overwrite&&l)l.dispose();else if(l){s.debug(`${Re}: Skipping primitive: NORMAL found.`);continue}l=n.createAccessor().setArray(new Float32Array(i.getCount()*3)).setType("VEC3");let g=[0,0,0],c=[0,0,0],f=[0,0,0];for(let u=0;u<i.getCount();u+=3){i.getElement(u+0,g),i.getElement(u+1,c),i.getElement(u+2,f);let d=Fo(g,c,f);l.setElement(u+0,d),l.setElement(u+1,d),l.setElement(u+2,d)}a.setAttribute("NORMAL",l),r++}r?s.debug(`${Re}: Complete.`):s.warn(`${Re}: No qualifying primitives found. See debug output.`)})}function Fo(e,t,n){let s=[t[0]-e[0],t[1]-e[1],t[2]-e[2]],r=[n[0]-e[0],n[1]-e[1],n[2]-e[2]],o=[s[1]*r[2]-s[2]*r[1],s[2]*r[0]-s[0]*r[2],s[0]*r[1]-s[1]*r[0]];return Nt([0,0,0],o)}var we="palette",on={blockSize:4,min:5,keepAttributes:!1,cleanup:!0};function Fi(e=on){let t=P(on,e),n=Math.max(t.blockSize,1),s=Math.max(t.min,1);return b(we,async r=>{let o=r.getLogger(),a=r.getRoot();t.keepAttributes||await r.transform(ne({propertyTypes:[S.ACCESSOR],keepAttributes:!1,keepIndices:!0,keepLeaves:!0}));let i=new Set,l=new Set;for(let M of a.listMeshes())for(let O of M.listPrimitives()){let C=O.getMaterial();!C||O.getAttribute("TEXCOORD_0")||(i.add(O),l.add(C))}let g=new Set,c=new Map,f={baseColor:new Set,emissive:new Set,metallicRoughness:new Set};for(let M of l){let O=an(M.getBaseColorFactor().slice()),C=an([...M.getEmissiveFactor(),1]),V=pt(M.getRoughnessFactor()),z=pt(M.getMetallicFactor()),se=`baseColor:${O},emissive:${C},metallicRoughness:${z}${V}`;f.baseColor.add(O),f.emissive.add(C),f.metallicRoughness.add(z+"+"+V),g.add(se),c.set(M,se)}let u=g.size;if(u<s){o.debug(`${we}: Found <${s} unique material properties. Exiting.`);return}let d=cn(u*n),p=cn(n),m=d-u*n,h={baseColor:null,emissive:null,metallicRoughness:null},E=new Set(["name","extras"]),A=(...M)=>M.forEach(O=>E.add(O)),T=null,I=null,y=null;if(f.baseColor.size>=s){let M="PaletteBaseColor";T=r.createTexture(M).setURI(`${M}.png`),h.baseColor=Oe(new Uint8Array(d*p*4),[d,p,4]),A("baseColorFactor","baseColorTexture","baseColorTextureInfo")}if(f.emissive.size>=s){let M="PaletteEmissive";I=r.createTexture(M).setURI(`${M}.png`),h.emissive=Oe(new Uint8Array(d*p*4),[d,p,4]),A("emissiveFactor","emissiveTexture","emissiveTextureInfo")}if(f.metallicRoughness.size>=s){let M="PaletteMetallicRoughness";y=r.createTexture(M).setURI(`${M}.png`),h.metallicRoughness=Oe(new Uint8Array(d*p*4),[d,p,4]),A("metallicFactor","roughnessFactor","metallicRoughnessTexture","metallicRoughnessTextureInfo")}if(!(T||I||y)){o.debug(`${we}: No material property has >=${s} unique values. Exiting.`);return}let N=new Set,x=new Map,$=[],_=0;for(let M of l){let O=c.get(M);if(N.has(O))continue;let C=_++;if(h.baseColor){let V=h.baseColor,z=[...M.getBaseColorFactor()];Le.convertLinearToSRGB(z,z),et(V,C,z,n)}if(h.emissive){let V=h.emissive,z=[...M.getEmissiveFactor(),1];Le.convertLinearToSRGB(z,z),et(V,C,z,n)}if(h.metallicRoughness){let V=h.metallicRoughness,z=M.getMetallicFactor(),se=M.getRoughnessFactor();et(V,C,[0,se,z,1],n)}N.add(O),x.set(O,C)}let L="image/png";if(T){let M=await ce(h.baseColor,L);T.setImage(M).setMimeType(L)}if(I){let M=await ce(h.emissive,L);I.setImage(M).setMimeType(L)}if(y){let M=await ce(h.metallicRoughness,L);y.setImage(M).setMimeType(L)}let q=1;for(let M of i){let O=M.getMaterial(),C=c.get(O),se=(x.get(C)+.5)/u*(d-m)/d,wt=M.getAttribute("POSITION"),ls=wt.getBuffer(),fs=new Float32Array(wt.getCount()*2).fill(se),gs=r.createAccessor().setType("VEC2").setArray(fs).setBuffer(ls),W;for(let Ie of $)Ie.equals(O,E)&&(W=Ie);if(!W){let Ie=(q++).toString().padStart(3,"0");W=O.clone().setName(`PaletteMaterial${Ie}`),T&&W.setBaseColorFactor([1,1,1,1]).setBaseColorTexture(T).getBaseColorTextureInfo().setMinFilter(H.MinFilter.NEAREST).setMagFilter(H.MagFilter.NEAREST),I&&W.setEmissiveFactor([1,1,1]).setEmissiveTexture(I).getEmissiveTextureInfo().setMinFilter(H.MinFilter.NEAREST).setMagFilter(H.MagFilter.NEAREST),y&&W.setMetallicFactor(1).setRoughnessFactor(1).setMetallicRoughnessTexture(y).getMetallicRoughnessTextureInfo().setMinFilter(H.MinFilter.NEAREST).setMagFilter(H.MagFilter.NEAREST),$.push(W)}M.setMaterial(W).setAttribute("TEXCOORD_0",gs)}t.cleanup&&await r.transform(ne({propertyTypes:[S.MATERIAL]})),o.debug(`${we}: Complete.`)})}function pt(e){let t=Math.round(e*255).toString(16);return t.length===1?"0"+t:t}function an(e){return Le.convertLinearToSRGB(e,e),e.map(pt).join("")}function cn(e){return Math.pow(2,Math.ceil(Math.log(e)/Math.LN2))}function et(e,t,n,s){for(let r=0;r<s;r++)for(let o=0;o<s;o++)e.set(t*s+r,o,0,n[0]*255),e.set(t*s+r,o,1,n[1]*255),e.set(t*s+r,o,2,n[2]*255),e.set(t*s+r,o,3,n[3]*255)}var ee="partition",ln={animations:!0,meshes:!0};function Ui(e=ln){let t=P(ln,e);return b(ee,async n=>{let s=n.getLogger();t.meshes!==!1&&Uo(n,s,t),t.animations!==!1&&Do(n,s,t),!t.meshes&&!t.animations&&s.warn(`${ee}: Select animations or meshes to create a partition.`),await n.transform(ne({propertyTypes:[S.BUFFER]})),s.debug(`${ee}: Complete.`)})}function Uo(e,t,n){let s=new Set(e.getRoot().listBuffers().map(r=>r.getURI()));e.getRoot().listMeshes().forEach((r,o)=>{if(Array.isArray(n.meshes)&&!n.meshes.includes(r.getName())){t.debug(`${ee}: Skipping mesh #${o} with name "${r.getName()}".`);return}t.debug(`${ee}: Creating buffer for mesh "${r.getName()}".`);let a=e.createBuffer(r.getName()).setURI(ts(r.getName()||"mesh",s));r.listPrimitives().forEach(i=>{let l=i.getIndices();l&&l.setBuffer(a),i.listAttributes().forEach(g=>g.setBuffer(a)),i.listTargets().forEach(g=>{g.listAttributes().forEach(c=>c.setBuffer(a))})})})}function Do(e,t,n){let s=new Set(e.getRoot().listBuffers().map(r=>r.getURI()));e.getRoot().listAnimations().forEach((r,o)=>{if(Array.isArray(n.animations)&&!n.animations.includes(r.getName())){t.debug(`${ee}: Skipping animation #${o} with name "${r.getName()}".`);return}t.debug(`${ee}: Creating buffer for animation "${r.getName()}".`);let a=e.createBuffer(r.getName()).setURI(ts(r.getName()||"animation",s));r.listSamplers().forEach(i=>{let l=i.getInput(),g=i.getOutput();l&&l.setBuffer(a),g&&g.setBuffer(a)})})}var Go=/[^\w0–9-]+/g;function ts(e,t){e=e.replace(Go,"");let n=`${e}.bin`,s=1;for(;t.has(n);)n=`${e}_${s++}.bin`;return t.add(n),n}var fn;(function(e){e[e.STEP=0]="STEP",e[e.LERP=1]="LERP",e[e.SLERP=2]="SLERP"})(fn||(fn={}));var ko=1e-6;function Bo(e,t,n,s=1e-4){let r=t.length/e.length,o=new Array(r).fill(0),a=new Array(r).fill(0),i=new Array(r).fill(0),l=new Array(r).fill(0),g=e.length-1,c=1;for(let f=1;f<g;++f){let u=e[c-1],d=e[f],p=e[f+1],m=(d-u)/(p-u),h=!1;if(d!==p&&(f!==1||d!==e[0]))if(ue(t,c-1,l),ue(t,f,a),ue(t,f+1,i),n==="slerp"){let E=Ho(o,l,i,m),A=un(l,a)+un(a,i);h=!Ce(a,E,s)||A+Number.EPSILON>=Math.PI}else if(n==="lerp"){let E=Vo(o,l,i,m);h=!Ce(a,E,s)}else n==="step"&&(h=!Ce(a,l)||!Ce(a,i));h&&(f!==c&&(e[c]=e[f],gn(t,c,ue(t,f,o))),c++)}return g>0&&(e[c]=e[g],gn(t,c,ue(t,g,o)),c++),c}function ue(e,t,n){for(let s=0,r=n.length;s<r;s++)n[s]=e[t*r+s];return n}function gn(e,t,n){for(let s=0,r=n.length;s<r;s++)e[t*r+s]=n[s]}function Ce(e,t,n=0){if(e.length!==t.length)return!1;for(let s=0;s<e.length;s++)if(Math.abs(e[s]-t[s])>n)return!1;return!0}function qo(e,t,n){return e*(1-n)+t*n}function Vo(e,t,n,s){for(let r=0;r<t.length;r++)e[r]=qo(t[r],n[r],s);return e}function Ho(e,t,n,s){let r=t[0],o=t[1],a=t[2],i=t[3],l=n[0],g=n[1],c=n[2],f=n[3],u,d,p,m,h;return d=r*l+o*g+a*c+i*f,d<0&&(d=-d,l=-l,g=-g,c=-c,f=-f),1-d>ko?(u=Math.acos(d),p=Math.sin(u),m=Math.sin((1-s)*u)/p,h=Math.sin(s*u)/p):(m=1-s,h=s),e[0]=m*r+h*l,e[1]=m*o+h*g,e[2]=m*a+h*c,e[3]=m*i+h*f,e}function un(e,t){let n=jo(e,t);return Math.acos(2*n*n-1)}function jo(e,t){return e[0]*t[0]+e[1]*t[1]+e[2]*t[2]+e[3]*t[3]}var dn="resample",pn=new Float32Array(0),mn={ready:Promise.resolve(),resample:Bo,tolerance:1e-4,cleanup:!0};function Di(e=mn){let t=P(mn,e);return b(dn,async n=>{let s=new Set,r=n.getRoot().listAccessors().length,o=n.getLogger(),a=t.ready,i=t.resample;await a;for(let g of n.getRoot().listAnimations()){let c=new Map;for(let f of g.listChannels())c.set(f.getSampler(),f.getTargetPath());for(let f of g.listSamplers()){let u=f.getInterpolation();if(u==="STEP"||u==="LINEAR"){let d=f.getInput(),p=f.getOutput();s.add(d),s.add(p);let m=hn(d.getArray(),d.getComponentType(),d.getNormalized()),h=hn(p.getArray(),p.getComponentType(),p.getNormalized()),E=h.length/m.length,A=m.length,T;if(u==="STEP"?T=i(m,h,"step",t.tolerance):c.get(f)==="rotation"?T=i(m,h,"slerp",t.tolerance):T=i(m,h,"lerp",t.tolerance),T<A){let I=d.getArray(),y=p.getArray(),N=An(new Float32Array(m.buffer,m.byteOffset,T),d.getComponentType(),d.getNormalized()),x=An(new Float32Array(h.buffer,h.byteOffset,T*E),p.getComponentType(),p.getNormalized());d.setArray(pn),p.setArray(pn),f.setInput(d.clone().setArray(N)),f.setOutput(p.clone().setArray(x)),d.setArray(I),p.setArray(y)}}}}for(let g of Array.from(s.values()))g.listParents().some(f=>!(f instanceof Ae))||g.dispose();n.getRoot().listAccessors().length>r&&t.cleanup&&await n.transform(qn({propertyTypes:[S.ACCESSOR]})),o.debug(`${dn}: Complete.`)})}function hn(e,t,n){if(e instanceof Float32Array)return e.slice();let s=new Float32Array(e);if(!n)return s;for(let r=0;r<s.length;r++)s[r]=w.decodeNormalizedInt(s[r],t);return s}function An(e,t,n){if(t===le.ComponentType.FLOAT)return e.slice();let s=ke[t],r=new s(e.length);for(let o=0;o<r.length;o++)r[o]=n?w.encodeNormalizedInt(e[o],t):e[o];return r}var Tn="sequence",En={name:"",fps:10,pattern:/.*/,sort:!0};function Gi(e=En){let t=P(En,e);return b(Tn,n=>{let s=n.getLogger(),r=n.getRoot(),o=t.fps,a=r.listNodes().filter(g=>g.getName().match(t.pattern));t.sort&&a.sort((g,c)=>g.getName()>c.getName()?1:-1);let i=n.createAnimation(t.name),l=r.listBuffers()[0];a.forEach((g,c)=>{let f,u;c===0?(f=[c/o,(c+1)/o],u=[1,1,1,0,0,0]):c===a.length-1?(f=[(c-1)/o,c/o],u=[0,0,0,1,1,1]):(f=[(c-1)/o,c/o,(c+1)/o],u=[0,0,0,1,1,1,0,0,0]);let d=n.createAccessor().setArray(new Float32Array(f)).setBuffer(l),p=n.createAccessor().setArray(new Float32Array(u)).setBuffer(l).setType(le.Type.VEC3),m=n.createAnimationSampler().setInterpolation(ps.Interpolation.STEP).setInput(d).setOutput(p),h=n.createAnimationChannel().setTargetNode(g).setTargetPath(Te.TargetPath.SCALE).setSampler(m);i.addSampler(m).addChannel(h)}),s.debug(`${Tn}: Complete.`)})}var Z="simplify",{POINTS:ns,LINES:Wo,LINE_STRIP:Xo,LINE_LOOP:Ko,TRIANGLES:Jo,TRIANGLE_STRIP:ss,TRIANGLE_FAN:rs}=v.Mode,os={ratio:0,error:1e-4,lockBorder:!1};function ki(e){let t=P(os,e),n=t.simplifier;if(!n)throw new Error(`${Z}: simplifier dependency required \u2014 install "meshoptimizer".`);return b(Z,async s=>{let r=s.getLogger();await n.ready,await s.transform(Gn({overwrite:!1}));let o=0;for(let a of s.getRoot().listMeshes()){for(let i of a.listPrimitives()){let l=i.getMode();if(l!==Jo&&l!==ss&&l!==rs&&l!==ns){o++;continue}Yo(i,t),B(i,R.RENDER)===0&&On(i)}a.listPrimitives().length===0&&a.dispose()}o>0&&r.warn(`${Z}: Skipped ${o} primitives: Unsupported draw mode.`),r.debug(`${Z}: Complete.`)})}function Yo(e,t){let n=D({},os,t),s=n.simplifier,r=e.getGraph(),o=F.fromGraph(r),a=o.getLogger();switch(e.getMode()){case ns:return Qo(o,e,n);case Wo:case Xo:case Ko:return a.warn(`${Z}: Skipping primitive simplification: Unsupported draw mode.`),e;case ss:case rs:Bn(e);break}let i=B(e,R.UPLOAD),l=B(e,R.RENDER);l<i/2&&te(e);let g=e.getAttribute("POSITION"),c=e.getIndices(),f=g.getArray(),u=c.getArray();f instanceof Float32Array||(f=ge(f,g.getComponentType(),g.getNormalized())),u instanceof Uint32Array||(u=new Uint32Array(u));let d=Math.floor(n.ratio*l/3)*3,p=n.lockBorder?["LockBorder"]:[],[m,h]=s.simplify(u,f,3,d,n.error,p);e.setIndices(G(o,c).setArray(m)),c.listParents().length===1&&c.dispose(),te(e);let E=B(e,R.UPLOAD);return E<=65534&&e.getIndices().setArray(new Uint16Array(e.getIndices().getArray())),a.debug(`${Z}: ${Be(i,E)} vertices, error: ${h.toFixed(4)}.`),e}function Qo(e,t,n){let s=n.simplifier,r=e.getLogger();t.getIndices()&&es(t);let a=t.getAttribute("POSITION"),i=t.getAttribute("COLOR_0"),l=a.getCount(),g=a.getArray(),c=i?i.getArray():void 0,f=i?i.getComponentSize():void 0;g instanceof Float32Array||(g=ge(g,a.getComponentType(),a.getNormalized())),c&&!(c instanceof Float32Array)&&(c=ge(c,a.getComponentType(),a.getNormalized()));let u=Math.floor(n.ratio*l),d=s.simplifyPoints(g,3,u,c,f),[p,m]=s.compactMesh(d);r.debug(`${Z}: ${Be(a.getCount(),m)} vertices.`);for(let h of Ee(t)){let E=G(e,h);_e(h,null,p,E,m),$s(t,h,E),h.listParents().length===1&&h.dispose()}return t}var be="sparse",yn={ratio:1/3};function Bi(e=yn){let n=P(yn,e).ratio;if(n<0||n>1)throw new Error(`${be}: Ratio must be between 0 and 1.`);return b(be,s=>{let r=s.getRoot(),o=s.getLogger(),a=0;for(let i of r.listAccessors()){let l=i.getCount(),g=Array(i.getElementSize()).fill(0),c=Array(i.getElementSize()).fill(0),f=0;for(let d=0;d<l&&(i.getElement(d,c),w.eq(c,g,0)||f++,!(f/l>=n));d++);let u=f/l<n;u!==i.getSparse()&&(i.setSparse(u),a++)}o.debug(`${be}: Updated ${a} accessors.`),o.debug(`${be}: Complete.`)})}var j="tangents",In={overwrite:!1};function qi(e=In){let t=P(In,e);if(!t.generateTangents)throw new Error(`${j}: generateTangents callback required \u2014 install "mikktspace".`);return b(j,n=>{let s=n.getLogger(),r=new Map,o=new Map,a=0;for(let i of n.getRoot().listMeshes()){let l=i.getName(),g=i.listPrimitives();for(let c=0;c<g.length;c++){let f=g[c];if(!ei(f,s,l,c,t.overwrite))continue;let u=Zo(f),d=f.getAttribute("POSITION").getArray(),p=f.getAttribute("NORMAL").getArray(),m=f.getAttribute(u).getArray(),h=r.get(d)||je();r.set(d,h);let E=r.get(p)||je();r.set(p,E);let A=r.get(m)||je();r.set(m,A);let T=f.getAttribute("TANGENT");T&&T.listParents().length===2&&T.dispose();let I=`${h}|${E}|${A}`,y=o.get(I);if(y){s.debug(`${j}: Found cache for primitive ${c} of mesh "${l}".`),f.setAttribute("TANGENT",y),a++;continue}s.debug(`${j}: Generating for primitive ${c} of mesh "${l}".`);let N=f.getAttribute("POSITION").getBuffer(),x=t.generateTangents(d instanceof Float32Array?d:new Float32Array(d),p instanceof Float32Array?p:new Float32Array(p),m instanceof Float32Array?m:new Float32Array(m));for(let $=3;$<x.length;$+=4)x[$]*=-1;y=n.createAccessor().setBuffer(N).setArray(x).setType("VEC4"),f.setAttribute("TANGENT",y),o.set(I,y),a++}}a?s.debug(`${j}: Complete.`):s.warn(`${j}: No qualifying primitives found. See debug output.`)})}function Zo(e){let t=e.getMaterial();if(!t)return"TEXCOORD_0";let n=t.getNormalTextureInfo();if(!n)return"TEXCOORD_0";let r=`TEXCOORD_${n.getTexCoord()}`;return e.getAttribute(r)?r:"TEXCOORD_0"}function ei(e,t,n,s,r){return e.getMode()!==v.Mode.TRIANGLES||!e.getAttribute("POSITION")||!e.getAttribute("NORMAL")||!e.getAttribute("TEXCOORD_0")?(t.debug(`${j}: Skipping primitive ${s} of mesh "${n}": primitives must have attributes=[POSITION, NORMAL, TEXCOORD_0] and mode=TRIANGLES.`),!1):e.getAttribute("TANGENT")&&!r?(t.debug(`${j}: Skipping primitive ${s} of mesh "${n}": TANGENT found.`),!1):e.getIndices()?(t.warn(`${j}: Skipping primitive ${s} of mesh "${n}": primitives must be unwelded.`),!1):!0}var tt="textureCompress",ti=["jpeg","png","webp","avif"],ni=["image/jpeg","image/png","image/webp","image/avif"],Ge;(function(e){e.LANCZOS3="lanczos3",e.LANCZOS2="lanczos2"})(Ge||(Ge={}));var is={resizeFilter:Ge.LANCZOS3,pattern:void 0,formats:void 0,slots:void 0,quality:void 0,effort:void 0,lossless:!1,nearLossless:!1,limitInputPixels:!0};function Vi(e){let t=P(is,e),n=t.targetFormat,s=t.pattern,r=t.formats,o=t.slots;return b(tt,async a=>{let i=a.getLogger(),l=a.getRoot().listTextures();await Promise.all(l.map(async(f,u)=>{let d=Kn(f),p=Qn(f),m=f.getURI()||f.getName()||`${u+1}/${a.getRoot().listTextures().length}`,h=`${tt}(${m})`;if(ni.includes(f.getMimeType())){if(s&&!s.test(f.getName())&&!s.test(f.getURI())){i.debug(`${h}: Skipping, excluded by "pattern" parameter.`);return}else if(r&&!r.test(f.getMimeType())){i.debug(`${h}: Skipping, "${f.getMimeType()}" excluded by "formats" parameter.`);return}else if(o&&d.length&&!d.some($=>o.test($))){i.debug(`${h}: Skipping, [${d.join(", ")}] excluded by "slots" parameter.`);return}else if(t.targetFormat==="jpeg"&&p&k.A){i.warn(`${h}: Skipping, [${d.join(", ")}] requires alpha channel.`);return}}else{i.debug(`${h}: Skipping, unsupported texture type "${f.getMimeType()}".`);return}let E=as(f),A=n||E;i.debug(`${h}: Format = ${E} \u2192 ${A}`),i.debug(`${h}: Slots = [${d.join(", ")}]`);let T=f.getImage(),I=T.byteLength;await si(f,t);let y=f.getImage(),N=y.byteLength,x=T===y?" (SKIPPED":"";i.debug(`${h}: Size = ${Pt(I)} \u2192 ${Pt(N)}${x}`)}));let g=a.createExtension(Es);l.some(f=>f.getMimeType()==="image/webp")?g.setRequired(!0):g.dispose();let c=a.createExtension(ys);l.some(f=>f.getMimeType()==="image/avif")?c.setRequired(!0):c.dispose(),i.debug(`${tt}: Complete.`)})}async function si(e,t){let n=D({},is,t),s=n.encoder,r=e.getURI(),o=as(e),a=n.targetFormat||o,i=e.getMimeType(),l=`image/${a}`,g=e.getImage(),c=s?await ri(g,i,l,n):await oi(g,i,l,n),f=g.byteLength,u=c.byteLength;if(!(i===l&&u>=f&&!n.resize))if(i===l)e.setImage(c);else{let d=r?ms.extension(r):he.mimeTypeToExtension(i),p=he.mimeTypeToExtension(l),m=e.getURI().replace(new RegExp(`\\.${d}$`),`.${p}`);e.setImage(c).setMimeType(l).setURI(m)}}async function ri(e,t,n,s){let r=s.encoder,o={},a=cs(n);switch(a){case"jpeg":o={quality:s.quality};break;case"png":o={quality:s.quality,effort:nt(s.effort,100,10)};break;case"webp":o={quality:s.quality,effort:nt(s.effort,100,6),lossless:s.lossless,nearLossless:s.nearLossless};break;case"avif":o={quality:s.quality,effort:nt(s.effort,100,9),lossless:s.lossless};break}let i=s.limitInputPixels,l=r(e,{limitInputPixels:i}).toFormat(a,o);if(s.resize){let g=he.getSize(e,t),c=Array.isArray(s.resize)?$n(g,s.resize):Ln(g,s.resize);l.resize(c[0],c[1],{fit:"fill",kernel:s.resizeFilter})}return ae.toView(await l.toBuffer())}async function oi(e,t,n,s){let r=await At(e,t);if(s.resize){let[o,a]=r.shape,i=Array.isArray(s.resize)?$n([o,a],s.resize):Ln([o,a],s.resize),l=Oe(new Uint8Array(i[0]*i[1]*4),[...i,4]);return s.resizeFilter===Ge.LANCZOS3?Rs(r,l):ws(r,l),ce(l,n)}return ce(r,n)}function as(e){return cs(e.getMimeType())}function cs(e){let t=e.split("/").pop();if(!t||!ti.includes(t))throw new Error(`Unknown MIME type "${e}".`);return t}function nt(e,t,n){if(e!=null)return Math.round(e/t*n)}var Sn="uninstance",ii={};function Hi(e=ii){return b(Sn,async t=>{let n=t.getLogger(),s=t.getRoot(),r=new Set;for(let o of t.getRoot().listNodes()){let a=o.getExtension("EXT_mesh_gpu_instancing");if(a){for(let i of ai(o))o.addChild(i);for(let i of a.listAttributes())r.add(i);o.setMesh(null),a.dispose()}}for(let o of r)o.listParents().every(a=>a===s)&&o.dispose();t.createExtension(Pn).dispose(),n.debug(`${Sn}: Complete.`)})}function ai(e){let t=e.getExtension("EXT_mesh_gpu_instancing");if(!t)return[];let n=t.listSemantics();if(n.length===0)return[];let s=F.fromGraph(e.getGraph()),r=t.listAttributes()[0].getCount(),o=String(r).length,a=e.getMesh(),i=e.getName(),l=[];for(let g=0;g<r;g++){let c=s.createNode().setMesh(a);if(i){let f=String(g).padStart(o,"0");c.setName(`${i}_${f}`)}for(let f of n){let u=t.getAttribute(f);switch(f){case"TRANSLATION":c.setTranslation(u.getElement(g,[0,0,0]));break;case"ROTATION":c.setRotation(u.getElement(g,[0,0,0,1]));break;case"SCALE":c.setScale(u.getElement(g,[1,1,1]));break;default:ci(c,f,u,g)}}l.push(c)}return l}function ci(e,t,n,s){let r=n.getType()==="SCALAR"?n.getScalar(s):n.getElement(s,[]);e.setExtras(D({},e.getExtras(),{[t]:r}))}function ji(){return e=>{let n=e.createExtension(Is).createUnlit();e.getRoot().listMaterials().forEach(s=>{s.setExtension("KHR_materials_unlit",n)})}}var Nn="unpartition",li={};function Wi(e=li){return b(Nn,async t=>{let n=t.getLogger(),s=t.getRoot().listBuffers()[0];t.getRoot().listAccessors().forEach(r=>r.setBuffer(s)),t.getRoot().listBuffers().forEach((r,o)=>o>0?r.dispose():null),n.debug(`${Nn}: Complete.`)})}var pe="unwrap",fi={texcoord:0,overwrite:!1,groupBy:"mesh"};function Xi(e){let t=D({},fi,e),n=t.watlas;if(!n)throw new Error(`${pe}: dependency required \u2014 install "watlas".`);return b(pe,async s=>{switch(await n.Initialize(),t.groupBy){case"primitive":{for(let o of s.getRoot().listMeshes())for(let a of o.listPrimitives())st([a],t);break}case"mesh":{for(let o of s.getRoot().listMeshes())st(o.listPrimitives(),t);break}case"scene":{let o=[],a=[];for(let i of s.getRoot().listMeshes()){let l=ui(i);for(let g of i.listPrimitives())o.push(g),a.push(l)}st(o,D({},t,{weights:a}));break}}s.getLogger().debug(`${pe}: Complete.`)})}function st(e,t){var n;let s=F.fromGraph(e[0].getGraph()),r=t.watlas,o=(n=t.texcoord)!=null?n:0,a=`TEXCOORD_${o}`;if(!r)throw new Error(`${pe}: dependency required \u2014 install "watlas".`);let i=new r.Atlas,l=[];for(let c=0;c<e.length;c++){let f=e[c],u=t.weights?t.weights[c]:1;if(!t.overwrite&&f.getAttribute(a))continue;let d=te(f),p=d.getAttribute("POSITION"),m={vertexCount:p.getCount(),vertexPositionData:gi(p,u),vertexPositionStride:p.getElementSize()*Float32Array.BYTES_PER_ELEMENT},h=d.getAttribute("NORMAL");if(h&&(m.vertexNormalData=Rn(h),m.vertexNormalStride=h.getElementSize()*Float32Array.BYTES_PER_ELEMENT),t.texcoord!==0){let A=d.getAttribute("TEXCOORD_0");A&&(m.vertexUvData=Rn(A),m.vertexUvStride=A.getElementSize()*Float32Array.BYTES_PER_ELEMENT)}let E=d.getIndices();if(E){let A=E.getArray();m.indexCount=E.getCount(),m.indexData=A instanceof Uint8Array?new Uint16Array(A):A}l.push(d),i.addMesh(m)}if(l.length===0)return;if(i.generate(),i.meshCount!==l.length)throw new Error(`${pe}: Generated an unexpected number of atlas meshes. (got: ${i.meshCount}, expected: ${l.length})`);let g=[1/i.width,1/i.height];for(let c=0;c<i.meshCount;c++){let f=l[c],u=i.getMesh(c),d=f.getAttribute(a);d&&(f.setAttribute(a,null),Q(d)||d.dispose());for(let A of f.listAttributes())f.swap(A,Mn(s,A,u)),Q(A)||A.dispose();for(let A of f.listTargets())for(let T of A.listAttributes())A.swap(T,Mn(s,T,u)),Q(T)||T.dispose();let p=s.createAccessor().setArray(new Float32Array(u.vertexCount*2)).setType("VEC2");for(let A=0;A<u.vertexCount;A++){let T=u.getVertex(A);p.setElement(A,[T.uv[0]*g[0],T.uv[1]*g[1]])}f.setAttribute(a,p);for(let A=o-1;A>=0;A--){let T=`TEXCOORD_${A}`;f.getAttribute(T)||f.setAttribute(T,p)}let m=new Uint32Array(u.indexCount);u.getIndexArray(m);let h=s.createAccessor().setArray(m).setType("SCALAR"),E=f.getIndices();f.setIndices(h),E&&!Q(E)&&E.dispose()}i.delete()}function Mn(e,t,n){let s=G(e,t),r=t.getArray().constructor;s.setArray(new r(n.vertexCount*t.getElementSize()));let o=[];for(let a=0;a<n.vertexCount;a++){let i=n.getVertex(a);s.setElement(a,t.getElement(i.xref,o))}return s}function Rn(e){return e.getComponentType()===le.ComponentType.FLOAT?e.getArray():ge(e.getArray(),e.getComponentType(),e.getNormalized())}function gi(e,t){let n=ge(e.getArray(),e.getComponentType(),e.getNormalized());for(let s=0;s<n.length;s++)n[s]*=t;return n}function ui(e){let t=-1/0;for(let n of e.listParents())if(n instanceof Cn){let s=n.getWorldScale();t=Number.isFinite(s[0])?Math.max(t,Math.abs(s[0])):t,t=Number.isFinite(s[1])?Math.max(t,Math.abs(s[1])):t,t=Number.isFinite(s[2])?Math.max(t,Math.abs(s[2])):t}return t>0&&Number.isFinite(t)?t:1}var Pe="vertexColorSpace";function Ki(e){return b(Pe,t=>{let n=t.getLogger(),s=(e.inputColorSpace||"").toLowerCase();if(s==="srgb-linear"){n.info(`${Pe}: Vertex colors already linear. Skipping conversion.`);return}if(s!=="srgb"){n.error(`${Pe}: Unknown input color space "${s}" \u2013 should be "srgb" or "srgb-linear". Skipping conversion.`);return}let r=new Set;function o(i){return i<.04045?i*.0773993808:Math.pow(i*.9478672986+.0521327014,2.4)}function a(i){let l=[0,0,0],g;for(let c=0;g=i.getAttribute(`COLOR_${c}`);c++)if(!r.has(g)){for(let f=0;f<g.getCount();f++)g.getElement(f,l),l[0]=o(l[0]),l[1]=o(l[1]),l[2]=o(l[2]),g.setElement(f,l);r.add(g)}}t.getRoot().listMeshes().forEach(i=>i.listPrimitives().forEach(a)),n.debug(`${Pe}: Complete.`)})}export{Dt as DRACO_DEFAULTS,qt as FLATTEN_DEFAULTS,jt as INSTANCE_DEFAULTS,Xt as JOIN_DEFAULTS,$o as MESHOPT_DEFAULTS,on as PALETTE_DEFAULTS,Gt as PRUNE_DEFAULTS,ve as QUANTIZE_DEFAULTS,os as SIMPLIFY_DEFAULTS,is as TEXTURE_COMPRESS_DEFAULTS,ti as TEXTURE_COMPRESS_SUPPORTED_FORMATS,Ge as TextureResizeFilter,fi as UNWRAP_DEFAULTS,R as VertexCountMethod,ze as WELD_DEFAULTS,P as assignDefaults,yi as center,Ds as clearNodeParent,Si as clearNodeTransform,Mi as cloneDocument,_e as compactAttribute,te as compactPrimitive,si as compressTexture,lr as convertPrimitiveToLines,Bn as convertPrimitiveToTriangles,Er as copyToDocument,Rt as createDefaultPropertyResolver,ai as createInstanceNodes,b as createTransform,qn as dedup,Ni as dequantize,mr as dequantizePrimitive,wi as draco,Ln as fitPowerOfTwo,$n as fitWithin,bi as flatten,Pi as getBounds,Tt as getGLPrimitiveCount,xe as getMeshVertexCount,Ii as getNodeVertexCount,B as getPrimitiveVertexCount,Ke as getSceneVertexCount,Qn as getTextureChannelMask,Or as getTextureColorSpace,Oi as inspect,xi as instance,Ei as isTransformPending,vi as join,eo as joinPrimitives,Us as listNodeScenes,$i as listTextureChannels,Ci as listTextureInfo,xr as listTextureInfoByMaterial,Kn as listTextureSlots,Tr as mergeDocuments,Li as meshopt,_i as metalRough,Ri as moveToDocument,zi as normals,Fi as palette,Ui as partition,ne as prune,yo as quantize,xo as reorder,Di as resample,Gi as sequence,ki as simplify,Yo as simplifyPrimitive,fo as sortPrimitiveWeights,Bi as sparse,qi as tangents,Vi as textureCompress,tr as transformMesh,kn as transformPrimitive,Hi as uninstance,ji as unlit,Wi as unpartition,zo as unweld,es as unweldPrimitive,Xi as unwrap,st as unwrapPrimitives,Ki as vertexColorSpace,Gn as weld,Ve as weldPrimitive};
-//# sourceMappingURL=functions.mjs.map
+import { Primitive, PropertyType, Document, getBounds as getBounds$1, Scene, BufferUtils, MathUtils, Accessor, Mesh, ComponentTypeToTypedArray, Root, TextureInfo, Texture, ExtensionProperty, AnimationChannel, Material, ColorUtils, ImageUtils, TextureChannel, Node, PrimitiveTarget, AnimationSampler, uuid, FileUtils } from '@gltf-transform/core';
+import { getPixels, savePixels } from 'ndarray-pixels';
+import { KHRMeshQuantization, KHRDracoMeshCompression, EXTMeshGPUInstancing, EXTMeshoptCompression, KHRMaterialsIOR, KHRMaterialsSpecular, KHRMaterialsPBRSpecularGlossiness, EXTTextureWebP, EXTTextureAVIF, KHRMaterialsUnlit } from '@gltf-transform/extensions';
+import { read, KHR_DF_MODEL_ETC1S, KHR_DF_MODEL_UASTC } from 'ktx-parse';
+import ndarray from 'ndarray';
+import { lanczos3, lanczos2 } from 'ndarray-lanczos';
+
+function _extends() {
+  return _extends = Object.assign ? Object.assign.bind() : function (n) {
+    for (var e = 1; e < arguments.length; e++) {
+      var t = arguments[e];
+      for (var r in t) ({}).hasOwnProperty.call(t, r) && (n[r] = t[r]);
+    }
+    return n;
+  }, _extends.apply(null, arguments);
+}
+
+const {
+  POINTS: POINTS$1,
+  LINES: LINES$2,
+  LINE_STRIP: LINE_STRIP$3,
+  LINE_LOOP: LINE_LOOP$3,
+  TRIANGLES: TRIANGLES$2,
+  TRIANGLE_STRIP: TRIANGLE_STRIP$3,
+  TRIANGLE_FAN: TRIANGLE_FAN$3
+} = Primitive.Mode;
+/**
+ * Prepares a function used in an {@link Document#transform} pipeline. Use of this wrapper is
+ * optional, and plain functions may be used in transform pipelines just as well. The wrapper is
+ * used internally so earlier pipeline stages can detect and optimize based on later stages.
+ * @hidden
+ */
+function createTransform(name, fn) {
+  Object.defineProperty(fn, 'name', {
+    value: name
+  });
+  return fn;
+}
+/** @hidden */
+function isTransformPending(context, initial, pending) {
+  if (!context) return false;
+  const initialIndex = context.stack.lastIndexOf(initial);
+  const pendingIndex = context.stack.lastIndexOf(pending);
+  return initialIndex < pendingIndex;
+}
+/**
+ * Performs a shallow merge on an 'options' object and a 'defaults' object.
+ * Equivalent to `{...defaults, ...options}` _except_ that `undefined` values
+ * in the 'options' object are ignored.
+ *
+ * @hidden
+ */
+function assignDefaults(defaults, options) {
+  const result = _extends({}, defaults);
+  for (const key in options) {
+    if (options[key] !== undefined) {
+      // biome-ignore lint/suspicious/noExplicitAny: TODO
+      result[key] = options[key];
+    }
+  }
+  return result;
+}
+/**
+ * Maps pixels from source to target textures, with a per-pixel callback.
+ * @hidden
+ */
+async function rewriteTexture(source, target, fn) {
+  if (!source) return null;
+  const srcImage = source.getImage();
+  if (!srcImage) return null;
+  const pixels = await getPixels(srcImage, source.getMimeType());
+  for (let i = 0; i < pixels.shape[0]; ++i) {
+    for (let j = 0; j < pixels.shape[1]; ++j) {
+      fn(pixels, i, j);
+    }
+  }
+  const dstImage = await savePixels(pixels, 'image/png');
+  return target.setImage(dstImage).setMimeType('image/png');
+}
+/** @hidden */
+function getGLPrimitiveCount(prim) {
+  const indices = prim.getIndices();
+  const position = prim.getAttribute('POSITION');
+  // Reference: https://www.khronos.org/opengl/wiki/Primitive
+  switch (prim.getMode()) {
+    case Primitive.Mode.POINTS:
+      return indices ? indices.getCount() : position.getCount();
+    case Primitive.Mode.LINES:
+      return indices ? indices.getCount() / 2 : position.getCount() / 2;
+    case Primitive.Mode.LINE_LOOP:
+      return indices ? indices.getCount() : position.getCount();
+    case Primitive.Mode.LINE_STRIP:
+      return indices ? indices.getCount() - 1 : position.getCount() - 1;
+    case Primitive.Mode.TRIANGLES:
+      return indices ? indices.getCount() / 3 : position.getCount() / 3;
+    case Primitive.Mode.TRIANGLE_STRIP:
+    case Primitive.Mode.TRIANGLE_FAN:
+      return indices ? indices.getCount() - 2 : position.getCount() - 2;
+    default:
+      throw new Error('Unexpected mode: ' + prim.getMode());
+  }
+}
+/** @hidden */
+class SetMap {
+  constructor() {
+    this._map = new Map();
+  }
+  get size() {
+    return this._map.size;
+  }
+  has(k) {
+    return this._map.has(k);
+  }
+  add(k, v) {
+    let entry = this._map.get(k);
+    if (!entry) {
+      entry = new Set();
+      this._map.set(k, entry);
+    }
+    entry.add(v);
+    return this;
+  }
+  get(k) {
+    return this._map.get(k) || new Set();
+  }
+  keys() {
+    return this._map.keys();
+  }
+}
+/** @hidden */
+function formatBytes(bytes, decimals = 2) {
+  if (bytes === 0) return '0 Bytes';
+  const k = 1000;
+  const dm = decimals < 0 ? 0 : decimals;
+  const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+}
+const _longFormatter = new Intl.NumberFormat(undefined, {
+  maximumFractionDigits: 0
+});
+/** @hidden */
+function formatLong(x) {
+  return _longFormatter.format(x);
+}
+/** @hidden */
+function formatDelta(a, b, decimals = 2) {
+  const prefix = a > b ? '–' : '+';
+  const suffix = '%';
+  return prefix + (Math.abs(a - b) / a * 100).toFixed(decimals) + suffix;
+}
+/** @hidden */
+function formatDeltaOp(a, b) {
+  return `${formatLong(a)} → ${formatLong(b)} (${formatDelta(a, b)})`;
+}
+/**
+ * Returns a list of all unique vertex attributes on the given primitive and
+ * its morph targets.
+ * @hidden
+ */
+function deepListAttributes(prim) {
+  const accessors = [];
+  for (const attribute of prim.listAttributes()) {
+    accessors.push(attribute);
+  }
+  for (const target of prim.listTargets()) {
+    for (const attribute of target.listAttributes()) {
+      accessors.push(attribute);
+    }
+  }
+  return Array.from(new Set(accessors));
+}
+/** @hidden */
+function deepSwapAttribute(prim, src, dst) {
+  prim.swap(src, dst);
+  for (const target of prim.listTargets()) {
+    target.swap(src, dst);
+  }
+}
+/**
+ * Disposes of a {@link Primitive} and any {@link Accessor Accesors} for which
+ * it is the last remaining parent.
+ * @hidden
+ */
+function deepDisposePrimitive(prim) {
+  const indices = prim.getIndices();
+  const attributes = deepListAttributes(prim);
+  prim.dispose();
+  if (indices && !isUsed(indices)) {
+    indices.dispose();
+  }
+  for (const attribute of attributes) {
+    if (!isUsed(attribute)) {
+      attribute.dispose();
+    }
+  }
+}
+/** @hidden */
+function shallowEqualsArray(a, b) {
+  if (a == null && b == null) return true;
+  if (a == null || b == null) return false;
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    if (a[i] !== b[i]) return false;
+  }
+  return true;
+}
+/** Clones an {@link Accessor} without creating a copy of its underlying TypedArray data. */
+function shallowCloneAccessor(document, accessor) {
+  return document.createAccessor(accessor.getName()).setArray(accessor.getArray()).setType(accessor.getType()).setBuffer(accessor.getBuffer()).setNormalized(accessor.getNormalized()).setSparse(accessor.getSparse());
+}
+/** @hidden */
+function createIndices(count, maxIndex = count) {
+  const array = createIndicesEmpty(count, maxIndex);
+  for (let i = 0; i < array.length; i++) array[i] = i;
+  return array;
+}
+/** @hidden */
+function createIndicesEmpty(count, maxIndex = count) {
+  return maxIndex <= 65534 ? new Uint16Array(count) : new Uint32Array(count);
+}
+/** @hidden */
+function isUsed(prop) {
+  return prop.listParents().some(parent => parent.propertyType !== PropertyType.ROOT);
+}
+/** @hidden */
+function isEmptyObject(object) {
+  for (const _key in object) return false;
+  return true;
+}
+/**
+ * Creates a unique key associated with the structure and draw call characteristics of
+ * a {@link Primitive}, independent of its vertex content. Helper method, used to
+ * identify candidate Primitives for joining.
+ * @hidden
+ */
+function createPrimGroupKey(prim) {
+  const document = Document.fromGraph(prim.getGraph());
+  const material = prim.getMaterial();
+  const materialIndex = document.getRoot().listMaterials().indexOf(material);
+  const mode = BASIC_MODE_MAPPING[prim.getMode()];
+  const indices = !!prim.getIndices();
+  const attributes = prim.listSemantics().sort().map(semantic => {
+    const attribute = prim.getAttribute(semantic);
+    const elementSize = attribute.getElementSize();
+    const componentType = attribute.getComponentType();
+    return `${semantic}:${elementSize}:${componentType}`;
+  }).join('+');
+  const targets = prim.listTargets().map(target => {
+    return target.listSemantics().sort().map(semantic => {
+      const attribute = prim.getAttribute(semantic);
+      const elementSize = attribute.getElementSize();
+      const componentType = attribute.getComponentType();
+      return `${semantic}:${elementSize}:${componentType}`;
+    }).join('+');
+  }).join('~');
+  return `${materialIndex}|${mode}|${indices}|${attributes}|${targets}`;
+}
+/**
+ * Scales `size` NxN dimensions to fit within `limit` NxN dimensions, without
+ * changing aspect ratio. If `size` <= `limit` in all dimensions, returns `size`.
+ * @hidden
+ */
+function fitWithin(size, limit) {
+  const [maxWidth, maxHeight] = limit;
+  const [srcWidth, srcHeight] = size;
+  if (srcWidth <= maxWidth && srcHeight <= maxHeight) return size;
+  let dstWidth = srcWidth;
+  let dstHeight = srcHeight;
+  if (dstWidth > maxWidth) {
+    dstHeight = Math.floor(dstHeight * (maxWidth / dstWidth));
+    dstWidth = maxWidth;
+  }
+  if (dstHeight > maxHeight) {
+    dstWidth = Math.floor(dstWidth * (maxHeight / dstHeight));
+    dstHeight = maxHeight;
+  }
+  return [dstWidth, dstHeight];
+}
+/**
+ * Scales `size` NxN dimensions to the specified power of two.
+ * @hidden
+ */
+function fitPowerOfTwo(size, method) {
+  if (isPowerOfTwo(size[0]) && isPowerOfTwo(size[1])) {
+    return size;
+  }
+  switch (method) {
+    case 'nearest-pot':
+      return size.map(nearestPowerOfTwo);
+    case 'ceil-pot':
+      return size.map(ceilPowerOfTwo$1);
+    case 'floor-pot':
+      return size.map(floorPowerOfTwo);
+  }
+}
+function isPowerOfTwo(value) {
+  if (value <= 2) return true;
+  return (value & value - 1) === 0 && value !== 0;
+}
+function nearestPowerOfTwo(value) {
+  if (value <= 4) return 4;
+  const lo = floorPowerOfTwo(value);
+  const hi = ceilPowerOfTwo$1(value);
+  if (hi - value > value - lo) return lo;
+  return hi;
+}
+function floorPowerOfTwo(value) {
+  return Math.pow(2, Math.floor(Math.log(value) / Math.LN2));
+}
+function ceilPowerOfTwo$1(value) {
+  return Math.pow(2, Math.ceil(Math.log(value) / Math.LN2));
+}
+/**
+ * Mapping from any glTF primitive mode to its equivalent basic mode, as returned by
+ * {@link convertPrimitiveMode}.
+ * @hidden
+ */
+const BASIC_MODE_MAPPING = {
+  [POINTS$1]: POINTS$1,
+  [LINES$2]: LINES$2,
+  [LINE_STRIP$3]: LINES$2,
+  [LINE_LOOP$3]: LINES$2,
+  [TRIANGLES$2]: TRIANGLES$2,
+  [TRIANGLE_STRIP$3]: TRIANGLES$2,
+  [TRIANGLE_FAN$3]: TRIANGLES$2
+};
+
+const NAME$q = 'center';
+const CENTER_DEFAULTS = {
+  pivot: 'center'
+};
+/**
+ * Centers the {@link Scene} at the origin, or above/below it. Transformations from animation,
+ * skinning, and morph targets are not taken into account.
+ *
+ * Example:
+ *
+ * ```ts
+ * await document.transform(center({pivot: 'below'}));
+ * ```
+ *
+ * @category Transforms
+ */
+function center(_options = CENTER_DEFAULTS) {
+  const options = assignDefaults(CENTER_DEFAULTS, _options);
+  return createTransform(NAME$q, doc => {
+    const logger = doc.getLogger();
+    const root = doc.getRoot();
+    const isAnimated = root.listAnimations().length > 0 || root.listSkins().length > 0;
+    doc.getRoot().listScenes().forEach((scene, index) => {
+      logger.debug(`${NAME$q}: Scene ${index + 1} / ${root.listScenes().length}.`);
+      let pivot;
+      if (typeof options.pivot === 'string') {
+        const bbox = getBounds$1(scene);
+        pivot = [(bbox.max[0] - bbox.min[0]) / 2 + bbox.min[0], (bbox.max[1] - bbox.min[1]) / 2 + bbox.min[1], (bbox.max[2] - bbox.min[2]) / 2 + bbox.min[2]];
+        if (options.pivot === 'above') pivot[1] = bbox.max[1];
+        if (options.pivot === 'below') pivot[1] = bbox.min[1];
+      } else {
+        pivot = options.pivot;
+      }
+      logger.debug(`${NAME$q}: Pivot "${pivot.join(', ')}".`);
+      const offset = [-1 * pivot[0], -1 * pivot[1], -1 * pivot[2]];
+      if (isAnimated) {
+        logger.debug(`${NAME$q}: Model contains animation or skin. Adding a wrapper node.`);
+        const offsetNode = doc.createNode('Pivot').setTranslation(offset);
+        scene.listChildren().forEach(child => offsetNode.addChild(child));
+        scene.addChild(offsetNode);
+      } else {
+        logger.debug(`${NAME$q}: Skipping wrapper, offsetting all root nodes.`);
+        scene.listChildren().forEach(child => {
+          const t = child.getTranslation();
+          child.setTranslation([t[0] + offset[0], t[1] + offset[1], t[2] + offset[2]]);
+        });
+      }
+    });
+    logger.debug(`${NAME$q}: Complete.`);
+  });
+}
+
+/**
+ * Finds the parent {@link Scene Scenes} associated with the given {@link Node}.
+ * In most cases a Node is associated with only one Scene, but it is possible
+ * for a Node to be located in two or more Scenes, or none at all.
+ *
+ * Example:
+ *
+ * ```typescript
+ * import { listNodeScenes } from '@gltf-transform/functions';
+ *
+ * const node = document.getRoot().listNodes()
+ *  .find((node) => node.getName() === 'MyNode');
+ *
+ * const scenes = listNodeScenes(node);
+ * ```
+ */
+function listNodeScenes(node) {
+  const visited = new Set();
+  let child = node;
+  let parent;
+  while (parent = child.getParentNode()) {
+    if (visited.has(parent)) {
+      throw new Error('Circular dependency in scene graph.');
+    }
+    visited.add(parent);
+    child = parent;
+  }
+  return child.listParents().filter(parent => parent instanceof Scene);
+}
+
+/**
+ * Clears the parent of the given {@link Node}, leaving it attached
+ * directly to its {@link Scene}. Inherited transforms will be applied
+ * to the Node. This operation changes the Node's local transform,
+ * but leaves its world transform unchanged.
+ *
+ * Example:
+ *
+ * ```typescript
+ * import { clearNodeParent } from '@gltf-transform/functions';
+ *
+ * scene.traverse((node) => { ... }); // Scene → … → Node
+ *
+ * clearNodeParent(node);
+ *
+ * scene.traverse((node) => { ... }); // Scene → Node
+ * ```
+ *
+ * To clear _all_ transforms of a Node, first clear its inherited transforms with
+ * {@link clearNodeParent}, then clear the local transform with {@link clearNodeTransform}.
+ */
+function clearNodeParent(node) {
+  const scenes = listNodeScenes(node);
+  const parent = node.getParentNode();
+  if (!parent) return node;
+  // Apply inherited transforms to local matrix. Skinned meshes are not affected
+  // by the node parent's transform, and can be ignored. Updates to IBMs and TRS
+  // animations are out of scope in this context.
+  node.setMatrix(node.getWorldMatrix());
+  // Add to Scene roots.
+  parent.removeChild(node);
+  for (const scene of scenes) scene.addChild(node);
+  return node;
+}
+
+/**
+ * Common utilities
+ * @module glMatrix
+ */
+var ARRAY_TYPE = typeof Float32Array !== 'undefined' ? Float32Array : Array;
+if (!Math.hypot) Math.hypot = function () {
+  var y = 0,
+      i = arguments.length;
+
+  while (i--) {
+    y += arguments[i] * arguments[i];
+  }
+
+  return Math.sqrt(y);
+};
+
+/**
+ * Inverts a mat4
+ *
+ * @param {mat4} out the receiving matrix
+ * @param {ReadonlyMat4} a the source matrix
+ * @returns {mat4} out
+ */
+
+function invert$1(out, a) {
+  var a00 = a[0],
+      a01 = a[1],
+      a02 = a[2],
+      a03 = a[3];
+  var a10 = a[4],
+      a11 = a[5],
+      a12 = a[6],
+      a13 = a[7];
+  var a20 = a[8],
+      a21 = a[9],
+      a22 = a[10],
+      a23 = a[11];
+  var a30 = a[12],
+      a31 = a[13],
+      a32 = a[14],
+      a33 = a[15];
+  var b00 = a00 * a11 - a01 * a10;
+  var b01 = a00 * a12 - a02 * a10;
+  var b02 = a00 * a13 - a03 * a10;
+  var b03 = a01 * a12 - a02 * a11;
+  var b04 = a01 * a13 - a03 * a11;
+  var b05 = a02 * a13 - a03 * a12;
+  var b06 = a20 * a31 - a21 * a30;
+  var b07 = a20 * a32 - a22 * a30;
+  var b08 = a20 * a33 - a23 * a30;
+  var b09 = a21 * a32 - a22 * a31;
+  var b10 = a21 * a33 - a23 * a31;
+  var b11 = a22 * a33 - a23 * a32; // Calculate the determinant
+
+  var det = b00 * b11 - b01 * b10 + b02 * b09 + b03 * b08 - b04 * b07 + b05 * b06;
+
+  if (!det) {
+    return null;
+  }
+
+  det = 1.0 / det;
+  out[0] = (a11 * b11 - a12 * b10 + a13 * b09) * det;
+  out[1] = (a02 * b10 - a01 * b11 - a03 * b09) * det;
+  out[2] = (a31 * b05 - a32 * b04 + a33 * b03) * det;
+  out[3] = (a22 * b04 - a21 * b05 - a23 * b03) * det;
+  out[4] = (a12 * b08 - a10 * b11 - a13 * b07) * det;
+  out[5] = (a00 * b11 - a02 * b08 + a03 * b07) * det;
+  out[6] = (a32 * b02 - a30 * b05 - a33 * b01) * det;
+  out[7] = (a20 * b05 - a22 * b02 + a23 * b01) * det;
+  out[8] = (a10 * b10 - a11 * b08 + a13 * b06) * det;
+  out[9] = (a01 * b08 - a00 * b10 - a03 * b06) * det;
+  out[10] = (a30 * b04 - a31 * b02 + a33 * b00) * det;
+  out[11] = (a21 * b02 - a20 * b04 - a23 * b00) * det;
+  out[12] = (a11 * b07 - a10 * b09 - a12 * b06) * det;
+  out[13] = (a00 * b09 - a01 * b07 + a02 * b06) * det;
+  out[14] = (a31 * b01 - a30 * b03 - a32 * b00) * det;
+  out[15] = (a20 * b03 - a21 * b01 + a22 * b00) * det;
+  return out;
+}
+/**
+ * Calculates the determinant of a mat4
+ *
+ * @param {ReadonlyMat4} a the source matrix
+ * @returns {Number} determinant of a
+ */
+
+function determinant(a) {
+  var a00 = a[0],
+      a01 = a[1],
+      a02 = a[2],
+      a03 = a[3];
+  var a10 = a[4],
+      a11 = a[5],
+      a12 = a[6],
+      a13 = a[7];
+  var a20 = a[8],
+      a21 = a[9],
+      a22 = a[10],
+      a23 = a[11];
+  var a30 = a[12],
+      a31 = a[13],
+      a32 = a[14],
+      a33 = a[15];
+  var b00 = a00 * a11 - a01 * a10;
+  var b01 = a00 * a12 - a02 * a10;
+  var b02 = a00 * a13 - a03 * a10;
+  var b03 = a01 * a12 - a02 * a11;
+  var b04 = a01 * a13 - a03 * a11;
+  var b05 = a02 * a13 - a03 * a12;
+  var b06 = a20 * a31 - a21 * a30;
+  var b07 = a20 * a32 - a22 * a30;
+  var b08 = a20 * a33 - a23 * a30;
+  var b09 = a21 * a32 - a22 * a31;
+  var b10 = a21 * a33 - a23 * a31;
+  var b11 = a22 * a33 - a23 * a32; // Calculate the determinant
+
+  return b00 * b11 - b01 * b10 + b02 * b09 + b03 * b08 - b04 * b07 + b05 * b06;
+}
+/**
+ * Multiplies two mat4s
+ *
+ * @param {mat4} out the receiving matrix
+ * @param {ReadonlyMat4} a the first operand
+ * @param {ReadonlyMat4} b the second operand
+ * @returns {mat4} out
+ */
+
+function multiply$2(out, a, b) {
+  var a00 = a[0],
+      a01 = a[1],
+      a02 = a[2],
+      a03 = a[3];
+  var a10 = a[4],
+      a11 = a[5],
+      a12 = a[6],
+      a13 = a[7];
+  var a20 = a[8],
+      a21 = a[9],
+      a22 = a[10],
+      a23 = a[11];
+  var a30 = a[12],
+      a31 = a[13],
+      a32 = a[14],
+      a33 = a[15]; // Cache only the current line of the second matrix
+
+  var b0 = b[0],
+      b1 = b[1],
+      b2 = b[2],
+      b3 = b[3];
+  out[0] = b0 * a00 + b1 * a10 + b2 * a20 + b3 * a30;
+  out[1] = b0 * a01 + b1 * a11 + b2 * a21 + b3 * a31;
+  out[2] = b0 * a02 + b1 * a12 + b2 * a22 + b3 * a32;
+  out[3] = b0 * a03 + b1 * a13 + b2 * a23 + b3 * a33;
+  b0 = b[4];
+  b1 = b[5];
+  b2 = b[6];
+  b3 = b[7];
+  out[4] = b0 * a00 + b1 * a10 + b2 * a20 + b3 * a30;
+  out[5] = b0 * a01 + b1 * a11 + b2 * a21 + b3 * a31;
+  out[6] = b0 * a02 + b1 * a12 + b2 * a22 + b3 * a32;
+  out[7] = b0 * a03 + b1 * a13 + b2 * a23 + b3 * a33;
+  b0 = b[8];
+  b1 = b[9];
+  b2 = b[10];
+  b3 = b[11];
+  out[8] = b0 * a00 + b1 * a10 + b2 * a20 + b3 * a30;
+  out[9] = b0 * a01 + b1 * a11 + b2 * a21 + b3 * a31;
+  out[10] = b0 * a02 + b1 * a12 + b2 * a22 + b3 * a32;
+  out[11] = b0 * a03 + b1 * a13 + b2 * a23 + b3 * a33;
+  b0 = b[12];
+  b1 = b[13];
+  b2 = b[14];
+  b3 = b[15];
+  out[12] = b0 * a00 + b1 * a10 + b2 * a20 + b3 * a30;
+  out[13] = b0 * a01 + b1 * a11 + b2 * a21 + b3 * a31;
+  out[14] = b0 * a02 + b1 * a12 + b2 * a22 + b3 * a32;
+  out[15] = b0 * a03 + b1 * a13 + b2 * a23 + b3 * a33;
+  return out;
+}
+/**
+ * Creates a matrix from a vector scaling
+ * This is equivalent to (but much faster than):
+ *
+ *     mat4.identity(dest);
+ *     mat4.scale(dest, dest, vec);
+ *
+ * @param {mat4} out mat4 receiving operation result
+ * @param {ReadonlyVec3} v Scaling vector
+ * @returns {mat4} out
+ */
+
+function fromScaling(out, v) {
+  out[0] = v[0];
+  out[1] = 0;
+  out[2] = 0;
+  out[3] = 0;
+  out[4] = 0;
+  out[5] = v[1];
+  out[6] = 0;
+  out[7] = 0;
+  out[8] = 0;
+  out[9] = 0;
+  out[10] = v[2];
+  out[11] = 0;
+  out[12] = 0;
+  out[13] = 0;
+  out[14] = 0;
+  out[15] = 1;
+  return out;
+}
+/**
+ * Creates a matrix from a quaternion rotation, vector translation and vector scale
+ * This is equivalent to (but much faster than):
+ *
+ *     mat4.identity(dest);
+ *     mat4.translate(dest, vec);
+ *     let quatMat = mat4.create();
+ *     quat4.toMat4(quat, quatMat);
+ *     mat4.multiply(dest, quatMat);
+ *     mat4.scale(dest, scale)
+ *
+ * @param {mat4} out mat4 receiving operation result
+ * @param {quat4} q Rotation quaternion
+ * @param {ReadonlyVec3} v Translation vector
+ * @param {ReadonlyVec3} s Scaling vector
+ * @returns {mat4} out
+ */
+
+function fromRotationTranslationScale(out, q, v, s) {
+  // Quaternion math
+  var x = q[0],
+      y = q[1],
+      z = q[2],
+      w = q[3];
+  var x2 = x + x;
+  var y2 = y + y;
+  var z2 = z + z;
+  var xx = x * x2;
+  var xy = x * y2;
+  var xz = x * z2;
+  var yy = y * y2;
+  var yz = y * z2;
+  var zz = z * z2;
+  var wx = w * x2;
+  var wy = w * y2;
+  var wz = w * z2;
+  var sx = s[0];
+  var sy = s[1];
+  var sz = s[2];
+  out[0] = (1 - (yy + zz)) * sx;
+  out[1] = (xy + wz) * sx;
+  out[2] = (xz - wy) * sx;
+  out[3] = 0;
+  out[4] = (xy - wz) * sy;
+  out[5] = (1 - (xx + zz)) * sy;
+  out[6] = (yz + wx) * sy;
+  out[7] = 0;
+  out[8] = (xz + wy) * sz;
+  out[9] = (yz - wx) * sz;
+  out[10] = (1 - (xx + yy)) * sz;
+  out[11] = 0;
+  out[12] = v[0];
+  out[13] = v[1];
+  out[14] = v[2];
+  out[15] = 1;
+  return out;
+}
+
+/**
+ * Various methods of estimating a vertex count. For some background on why
+ * multiple definitions of a vertex count should exist, see [_Vertex Count
+ * Higher in Engine than in 3D Software_](https://shahriyarshahrabi.medium.com/vertex-count-higher-in-engine-than-in-3d-software-badc348ada66).
+ * Totals for a {@link Scene}, {@link Node}, or {@link Mesh} will not
+ * necessarily match the sum of the totals for each {@link Primitive}. Choose
+ * the appropriate method for a relevant total or estimate:
+ *
+ * - {@link getSceneVertexCount}
+ * - {@link getNodeVertexCount}
+ * - {@link getMeshVertexCount}
+ * - {@link getPrimitiveVertexCount}
+ *
+ * Many rendering features, such as volumetric transmission, may lead
+ * to additional passes over some or all vertices. These tradeoffs are
+ * implementation-dependent, and not considered here.
+ */
+var VertexCountMethod;
+(function (VertexCountMethod) {
+  /**
+   * Expected number of vertices processed by the vertex shader for one render
+   * pass, without considering the vertex cache.
+   */
+  VertexCountMethod["RENDER"] = "render";
+  /**
+   * Expected number of vertices processed by the vertex shader for one render
+   * pass, assuming an Average Transform to Vertex Ratio (ATVR) of 1. Approaching
+   * this result requires optimizing for locality of vertex references (see
+   * {@link reorder}).
+   *
+   * References:
+   * - [ACMR and ATVR](https://www.realtimerendering.com/blog/acmr-and-atvr/), Real-Time Rendering
+   */
+  VertexCountMethod["RENDER_CACHED"] = "render-cached";
+  /**
+   * Expected number of vertices uploaded to the GPU, assuming that a client
+   * uploads each unique {@link Accessor} only once. Unless glTF vertex
+   * attributes are pre-processed to a known buffer layout, and the client is
+   * optimized for that buffer layout, this total will be optimistic.
+   */
+  VertexCountMethod["UPLOAD"] = "upload";
+  /**
+   * Expected number of vertices uploaded to the GPU, assuming that a client
+   * uploads each unique {@link Primitive} individually, duplicating vertex
+   * attribute {@link Accessor Accessors} shared by multiple primitives, but
+   * never uploading the same Mesh or Primitive to GPU memory more than once.
+   */
+  VertexCountMethod["UPLOAD_NAIVE"] = "upload-naive";
+  /**
+   * Total number of unique vertices represented, considering all attributes of
+   * each vertex, and removing any duplicates. Has no direct relationship to
+   * runtime characteristics, but may be helpful in identifying asset
+   * optimization opportunities.
+   *
+   * @hidden TODO(feat): Not yet implemented.
+   * @internal
+   */
+  VertexCountMethod["DISTINCT"] = "distinct";
+  /**
+   * Total number of unique vertices represented, considering only vertex
+   * positions, and removing any duplicates. Has no direct relationship to
+   * runtime characteristics, but may be helpful in identifying asset
+   * optimization opportunities.
+   *
+   * @hidden TODO(feat): Not yet implemented.
+   * @internal
+   */
+  VertexCountMethod["DISTINCT_POSITION"] = "distinct-position";
+  /**
+   * Number of vertex positions never used by any {@link Primitive}. If all
+   * vertices are unused, this total will match `UPLOAD`.
+   */
+  VertexCountMethod["UNUSED"] = "unused";
+})(VertexCountMethod || (VertexCountMethod = {}));
+/**
+ * Computes total number of vertices in a {@link Scene}, by the
+ * specified method. Totals for the Scene will not necessarily match the sum
+ * of the totals for each {@link Mesh} or {@link Primitive} within it. See
+ * {@link VertexCountMethod} for available methods.
+ */
+function getSceneVertexCount(scene, method) {
+  return _getSubtreeVertexCount(scene, method);
+}
+/**
+ * Computes total number of vertices in a {@link Node}, by the
+ * specified method. Totals for the node will not necessarily match the sum
+ * of the totals for each {@link Mesh} or {@link Primitive} within it. See
+ * {@link VertexCountMethod} for available methods.
+ */
+function getNodeVertexCount(node, method) {
+  return _getSubtreeVertexCount(node, method);
+}
+function _getSubtreeVertexCount(node, method) {
+  const instancedMeshes = [];
+  const nonInstancedMeshes = [];
+  const meshes = [];
+  node.traverse(node => {
+    const mesh = node.getMesh();
+    const batch = node.getExtension('EXT_mesh_gpu_instancing');
+    if (batch && mesh) {
+      meshes.push(mesh);
+      instancedMeshes.push([batch.listAttributes()[0].getCount(), mesh]);
+    } else if (mesh) {
+      meshes.push(mesh);
+      nonInstancedMeshes.push(mesh);
+    }
+  });
+  const prims = meshes.flatMap(mesh => mesh.listPrimitives());
+  const positions = prims.map(prim => prim.getAttribute('POSITION'));
+  const uniquePositions = Array.from(new Set(positions));
+  const uniqueMeshes = Array.from(new Set(meshes));
+  const uniquePrims = Array.from(new Set(uniqueMeshes.flatMap(mesh => mesh.listPrimitives())));
+  switch (method) {
+    case VertexCountMethod.RENDER:
+    case VertexCountMethod.RENDER_CACHED:
+      return _sum(nonInstancedMeshes.map(mesh => getMeshVertexCount(mesh, method))) + _sum(instancedMeshes.map(([batch, mesh]) => batch * getMeshVertexCount(mesh, method)));
+    case VertexCountMethod.UPLOAD_NAIVE:
+      return _sum(uniqueMeshes.map(mesh => getMeshVertexCount(mesh, method)));
+    case VertexCountMethod.UPLOAD:
+      return _sum(uniquePositions.map(attribute => attribute.getCount()));
+    case VertexCountMethod.DISTINCT:
+    case VertexCountMethod.DISTINCT_POSITION:
+      return _assertNotImplemented(method);
+    case VertexCountMethod.UNUSED:
+      return _sumUnused(uniquePrims);
+    default:
+      return _assertUnreachable(method);
+  }
+}
+/**
+ * Computes total number of vertices in a {@link Mesh}, by the
+ * specified method. Totals for the Mesh will not necessarily match the sum
+ * of the totals for each {@link Primitive} within it. See
+ * {@link VertexCountMethod} for available methods.
+ */
+function getMeshVertexCount(mesh, method) {
+  const prims = mesh.listPrimitives();
+  const uniquePrims = Array.from(new Set(prims));
+  const uniquePositions = Array.from(new Set(uniquePrims.map(prim => prim.getAttribute('POSITION'))));
+  switch (method) {
+    case VertexCountMethod.RENDER:
+    case VertexCountMethod.RENDER_CACHED:
+    case VertexCountMethod.UPLOAD_NAIVE:
+      return _sum(prims.map(prim => getPrimitiveVertexCount(prim, method)));
+    case VertexCountMethod.UPLOAD:
+      return _sum(uniquePositions.map(attribute => attribute.getCount()));
+    case VertexCountMethod.DISTINCT:
+    case VertexCountMethod.DISTINCT_POSITION:
+      return _assertNotImplemented(method);
+    case VertexCountMethod.UNUSED:
+      return _sumUnused(uniquePrims);
+    default:
+      return _assertUnreachable(method);
+  }
+}
+/**
+ * Computes total number of vertices in a {@link Primitive}, by the
+ * specified method. See {@link VertexCountMethod} for available methods.
+ */
+function getPrimitiveVertexCount(prim, method) {
+  const position = prim.getAttribute('POSITION');
+  const indices = prim.getIndices();
+  switch (method) {
+    case VertexCountMethod.RENDER:
+      return indices ? indices.getCount() : position.getCount();
+    case VertexCountMethod.RENDER_CACHED:
+      return indices ? new Set(indices.getArray()).size : position.getCount();
+    case VertexCountMethod.UPLOAD_NAIVE:
+    case VertexCountMethod.UPLOAD:
+      return position.getCount();
+    case VertexCountMethod.DISTINCT:
+    case VertexCountMethod.DISTINCT_POSITION:
+      return _assertNotImplemented(method);
+    case VertexCountMethod.UNUSED:
+      return indices ? position.getCount() - new Set(indices.getArray()).size : 0;
+    default:
+      return _assertUnreachable(method);
+  }
+}
+function _sum(values) {
+  let total = 0;
+  for (let i = 0; i < values.length; i++) {
+    total += values[i];
+  }
+  return total;
+}
+function _sumUnused(prims) {
+  const attributeIndexMap = new Map();
+  for (const prim of prims) {
+    const position = prim.getAttribute('POSITION');
+    const indices = prim.getIndices();
+    const indicesSet = attributeIndexMap.get(position) || new Set();
+    indicesSet.add(indices);
+    attributeIndexMap.set(position, indicesSet);
+  }
+  let unused = 0;
+  for (const [position, indicesSet] of attributeIndexMap) {
+    if (indicesSet.has(null)) continue;
+    const usedIndices = new Uint8Array(position.getCount());
+    for (const indices of indicesSet) {
+      const indicesArray = indices.getArray();
+      for (let i = 0, il = indicesArray.length; i < il; i++) {
+        usedIndices[indicesArray[i]] = 1;
+      }
+    }
+    for (let i = 0, il = position.getCount(); i < il; i++) {
+      if (usedIndices[i] === 0) unused++;
+    }
+  }
+  return unused;
+}
+function _assertNotImplemented(x) {
+  throw new Error(`Not implemented: ${x}`);
+}
+function _assertUnreachable(x) {
+  throw new Error(`Unexpected value: ${x}`);
+}
+
+/** Flags 'empty' values in a Uint32Array index. */
+const EMPTY_U32$1 = 2 ** 32 - 1;
+class VertexStream {
+  constructor(prim) {
+    this.attributes = [];
+    /** Temporary vertex views in 4-byte-aligned memory. */
+    this.u8 = void 0;
+    this.u32 = void 0;
+    let byteStride = 0;
+    for (const attribute of deepListAttributes(prim)) {
+      byteStride += this._initAttribute(attribute);
+    }
+    this.u8 = new Uint8Array(byteStride);
+    this.u32 = new Uint32Array(this.u8.buffer);
+  }
+  _initAttribute(attribute) {
+    const array = attribute.getArray();
+    const u8 = new Uint8Array(array.buffer, array.byteOffset, array.byteLength);
+    const byteStride = attribute.getElementSize() * attribute.getComponentSize();
+    const paddedByteStride = BufferUtils.padNumber(byteStride);
+    this.attributes.push({
+      u8,
+      byteStride,
+      paddedByteStride
+    });
+    return paddedByteStride;
+  }
+  hash(index) {
+    // Load vertex into 4-byte-aligned view.
+    let byteOffset = 0;
+    for (const {
+      u8,
+      byteStride,
+      paddedByteStride
+    } of this.attributes) {
+      for (let i = 0; i < paddedByteStride; i++) {
+        if (i < byteStride) {
+          this.u8[byteOffset + i] = u8[index * byteStride + i];
+        } else {
+          this.u8[byteOffset + i] = 0;
+        }
+      }
+      byteOffset += paddedByteStride;
+    }
+    // Compute hash.
+    return murmurHash2(0, this.u32);
+  }
+  equal(a, b) {
+    for (const {
+      u8,
+      byteStride
+    } of this.attributes) {
+      for (let j = 0; j < byteStride; j++) {
+        if (u8[a * byteStride + j] !== u8[b * byteStride + j]) {
+          return false;
+        }
+      }
+    }
+    return true;
+  }
+}
+/**
+ * References:
+ * - https://github.com/mikolalysenko/murmurhash-js/blob/f19136e9f9c17f8cddc216ca3d44ec7c5c502f60/murmurhash2_gc.js#L14
+ * - https://github.com/zeux/meshoptimizer/blob/e47e1be6d3d9513153188216455bdbed40a206ef/src/indexgenerator.cpp#L12
+ */
+function murmurHash2(h, key) {
+  // MurmurHash2
+  const m = 0x5bd1e995;
+  const r = 24;
+  for (let i = 0, il = key.length; i < il; i++) {
+    let k = key[i];
+    k = Math.imul(k, m) >>> 0;
+    k = (k ^ k >> r) >>> 0;
+    k = Math.imul(k, m) >>> 0;
+    h = Math.imul(h, m) >>> 0;
+    h = (h ^ k) >>> 0;
+  }
+  return h;
+}
+function hashLookup(table, buckets, stream, key, empty = EMPTY_U32$1) {
+  const hashmod = buckets - 1;
+  const hashval = stream.hash(key);
+  let bucket = hashval & hashmod;
+  for (let probe = 0; probe <= hashmod; probe++) {
+    const item = table[bucket];
+    if (item === empty || stream.equal(item, key)) {
+      return bucket;
+    }
+    bucket = bucket + probe + 1 & hashmod; // Hash collision.
+  }
+  throw new Error('Hash table full.');
+}
+
+/**
+ * Rewrites a {@link Primitive} such that all unused vertices in its vertex
+ * attributes are removed. When multiple Primitives share vertex attributes,
+ * each indexing only a few, compaction can be used to produce Primitives
+ * each having smaller, independent vertex streams instead.
+ *
+ * Regardless of whether the Primitive is indexed or contains unused vertices,
+ * compaction will clone every {@link Accessor}. The resulting Primitive will
+ * share no Accessors with other Primitives, allowing later changes to
+ * the vertex stream to be applied in isolation.
+ *
+ * Example:
+ *
+ * ```javascript
+ * import { compactPrimitive, transformMesh } from '@gltf-transform/functions';
+ * import { fromTranslation } from 'gl-matrix/mat4';
+ *
+ * const mesh = document.getRoot().listMeshes().find((mesh) => mesh.getName() === 'MyMesh');
+ * const prim = mesh.listPrimitives().find((prim) => { ... });
+ *
+ * // Compact primitive, removing unused vertices and detaching shared vertex
+ * // attributes. Without compaction, `transformPrimitive` might affect other
+ * // primitives sharing the same vertex attributes.
+ * compactPrimitive(prim);
+ *
+ * // Transform primitive vertices, y += 10.
+ * transformPrimitive(prim, fromTranslation([], [0, 10, 0]));
+ * ```
+ *
+ * Parameters 'remap' and 'dstVertexCount' are optional. When either is
+ * provided, the other must be provided as well. If one or both are missing,
+ * both will be computed from the mesh indices.
+ *
+ * @param remap - Mapping. Array index represents vertex index in the source
+ *		attributes, array value represents index in the resulting compacted
+ *		primitive. When omitted, calculated from indices.
+ * @param dstVertexcount - Number of unique vertices in compacted primitive.
+ *		When omitted, calculated from indices.
+ */
+// TODO(cleanup): Additional signatures currently break greendoc/parse.
+// export function compactPrimitive(prim: Primitive): Primitive;
+// export function compactPrimitive(prim: Primitive, remap: TypedArray, dstVertexCount: number): Primitive;
+function compactPrimitive(prim, remap, dstVertexCount) {
+  const document = Document.fromGraph(prim.getGraph());
+  if (!remap || !dstVertexCount) {
+    [remap, dstVertexCount] = createCompactPlan(prim);
+  }
+  // Remap indices.
+  const srcIndices = prim.getIndices();
+  const srcIndicesArray = srcIndices ? srcIndices.getArray() : null;
+  const srcIndicesCount = getPrimitiveVertexCount(prim, VertexCountMethod.RENDER);
+  const dstIndices = document.createAccessor();
+  const dstIndicesCount = srcIndicesCount; // primitive count does not change.
+  const dstIndicesArray = createIndicesEmpty(dstIndicesCount, dstVertexCount);
+  for (let i = 0; i < dstIndicesCount; i++) {
+    dstIndicesArray[i] = remap[srcIndicesArray ? srcIndicesArray[i] : i];
+  }
+  prim.setIndices(dstIndices.setArray(dstIndicesArray));
+  // Remap vertices.
+  const srcAttributesPrev = deepListAttributes(prim);
+  for (const srcAttribute of prim.listAttributes()) {
+    const dstAttribute = shallowCloneAccessor(document, srcAttribute);
+    compactAttribute(srcAttribute, srcIndices, remap, dstAttribute, dstVertexCount);
+    prim.swap(srcAttribute, dstAttribute);
+  }
+  for (const target of prim.listTargets()) {
+    for (const srcAttribute of target.listAttributes()) {
+      const dstAttribute = shallowCloneAccessor(document, srcAttribute);
+      compactAttribute(srcAttribute, srcIndices, remap, dstAttribute, dstVertexCount);
+      target.swap(srcAttribute, dstAttribute);
+    }
+  }
+  // Clean up accessors.
+  if (srcIndices && srcIndices.listParents().length === 1) {
+    srcIndices.dispose();
+  }
+  for (const srcAttribute of srcAttributesPrev) {
+    if (srcAttribute.listParents().length === 1) {
+      srcAttribute.dispose();
+    }
+  }
+  return prim;
+}
+/**
+ * Copies srcAttribute to dstAttribute, using the given indices and remap (srcIndex -> dstIndex).
+ * Any existing array in dstAttribute is replaced. Vertices not used by the index are eliminated,
+ * leaving a compact attribute.
+ * @hidden
+ * @internal
+ */
+function compactAttribute(srcAttribute, srcIndices, remap, dstAttribute, dstVertexCount) {
+  const elementSize = srcAttribute.getElementSize();
+  const srcArray = srcAttribute.getArray();
+  const srcIndicesArray = srcIndices ? srcIndices.getArray() : null;
+  const srcIndicesCount = srcIndices ? srcIndices.getCount() : srcAttribute.getCount();
+  const dstArray = new srcArray.constructor(dstVertexCount * elementSize);
+  const dstDone = new Uint8Array(dstVertexCount);
+  for (let i = 0; i < srcIndicesCount; i++) {
+    const srcIndex = srcIndicesArray ? srcIndicesArray[i] : i;
+    const dstIndex = remap[srcIndex];
+    if (dstDone[dstIndex]) continue;
+    for (let j = 0; j < elementSize; j++) {
+      dstArray[dstIndex * elementSize + j] = srcArray[srcIndex * elementSize + j];
+    }
+    dstDone[dstIndex] = 1;
+  }
+  return dstAttribute.setArray(dstArray);
+}
+/**
+ * Creates a 'remap' and 'dstVertexCount' plan for indexed primitives,
+ * such that they can be rewritten with {@link compactPrimitive} removing
+ * any non-rendered vertices.
+ * @hidden
+ * @internal
+ */
+function createCompactPlan(prim) {
+  const srcVertexCount = getPrimitiveVertexCount(prim, VertexCountMethod.UPLOAD);
+  const indices = prim.getIndices();
+  const indicesArray = indices ? indices.getArray() : null;
+  if (!indices || !indicesArray) {
+    return [createIndices(srcVertexCount, 1000000), srcVertexCount];
+  }
+  const remap = new Uint32Array(srcVertexCount).fill(EMPTY_U32$1);
+  let dstVertexCount = 0;
+  for (let i = 0; i < indicesArray.length; i++) {
+    const srcIndex = indicesArray[i];
+    if (remap[srcIndex] === EMPTY_U32$1) {
+      remap[srcIndex] = dstVertexCount++;
+    }
+  }
+  return [remap, dstVertexCount];
+}
+
+/**
+ * 3x3 Matrix
+ * @module mat3
+ */
+
+/**
+ * Creates a new identity mat3
+ *
+ * @returns {mat3} a new 3x3 matrix
+ */
+
+function create$2() {
+  var out = new ARRAY_TYPE(9);
+
+  if (ARRAY_TYPE != Float32Array) {
+    out[1] = 0;
+    out[2] = 0;
+    out[3] = 0;
+    out[5] = 0;
+    out[6] = 0;
+    out[7] = 0;
+  }
+
+  out[0] = 1;
+  out[4] = 1;
+  out[8] = 1;
+  return out;
+}
+/**
+ * Copies the upper-left 3x3 values into the given mat3.
+ *
+ * @param {mat3} out the receiving 3x3 matrix
+ * @param {ReadonlyMat4} a   the source 4x4 matrix
+ * @returns {mat3} out
+ */
+
+function fromMat4(out, a) {
+  out[0] = a[0];
+  out[1] = a[1];
+  out[2] = a[2];
+  out[3] = a[4];
+  out[4] = a[5];
+  out[5] = a[6];
+  out[6] = a[8];
+  out[7] = a[9];
+  out[8] = a[10];
+  return out;
+}
+/**
+ * Transpose the values of a mat3
+ *
+ * @param {mat3} out the receiving matrix
+ * @param {ReadonlyMat3} a the source matrix
+ * @returns {mat3} out
+ */
+
+function transpose(out, a) {
+  // If we are transposing ourselves we can skip a few steps but have to cache some values
+  if (out === a) {
+    var a01 = a[1],
+        a02 = a[2],
+        a12 = a[5];
+    out[1] = a[3];
+    out[2] = a[6];
+    out[3] = a01;
+    out[5] = a[7];
+    out[6] = a02;
+    out[7] = a12;
+  } else {
+    out[0] = a[0];
+    out[1] = a[3];
+    out[2] = a[6];
+    out[3] = a[1];
+    out[4] = a[4];
+    out[5] = a[7];
+    out[6] = a[2];
+    out[7] = a[5];
+    out[8] = a[8];
+  }
+
+  return out;
+}
+/**
+ * Inverts a mat3
+ *
+ * @param {mat3} out the receiving matrix
+ * @param {ReadonlyMat3} a the source matrix
+ * @returns {mat3} out
+ */
+
+function invert(out, a) {
+  var a00 = a[0],
+      a01 = a[1],
+      a02 = a[2];
+  var a10 = a[3],
+      a11 = a[4],
+      a12 = a[5];
+  var a20 = a[6],
+      a21 = a[7],
+      a22 = a[8];
+  var b01 = a22 * a11 - a12 * a21;
+  var b11 = -a22 * a10 + a12 * a20;
+  var b21 = a21 * a10 - a11 * a20; // Calculate the determinant
+
+  var det = a00 * b01 + a01 * b11 + a02 * b21;
+
+  if (!det) {
+    return null;
+  }
+
+  det = 1.0 / det;
+  out[0] = b01 * det;
+  out[1] = (-a22 * a01 + a02 * a21) * det;
+  out[2] = (a12 * a01 - a02 * a11) * det;
+  out[3] = b11 * det;
+  out[4] = (a22 * a00 - a02 * a20) * det;
+  out[5] = (-a12 * a00 + a02 * a10) * det;
+  out[6] = b21 * det;
+  out[7] = (-a21 * a00 + a01 * a20) * det;
+  out[8] = (a11 * a00 - a01 * a10) * det;
+  return out;
+}
+
+/**
+ * 3 Dimensional Vector
+ * @module vec3
+ */
+
+/**
+ * Creates a new, empty vec3
+ *
+ * @returns {vec3} a new 3D vector
+ */
+
+function create$1() {
+  var out = new ARRAY_TYPE(3);
+
+  if (ARRAY_TYPE != Float32Array) {
+    out[0] = 0;
+    out[1] = 0;
+    out[2] = 0;
+  }
+
+  return out;
+}
+/**
+ * Multiplies two vec3's
+ *
+ * @param {vec3} out the receiving vector
+ * @param {ReadonlyVec3} a the first operand
+ * @param {ReadonlyVec3} b the second operand
+ * @returns {vec3} out
+ */
+
+function multiply$1(out, a, b) {
+  out[0] = a[0] * b[0];
+  out[1] = a[1] * b[1];
+  out[2] = a[2] * b[2];
+  return out;
+}
+/**
+ * Returns the minimum of two vec3's
+ *
+ * @param {vec3} out the receiving vector
+ * @param {ReadonlyVec3} a the first operand
+ * @param {ReadonlyVec3} b the second operand
+ * @returns {vec3} out
+ */
+
+function min(out, a, b) {
+  out[0] = Math.min(a[0], b[0]);
+  out[1] = Math.min(a[1], b[1]);
+  out[2] = Math.min(a[2], b[2]);
+  return out;
+}
+/**
+ * Returns the maximum of two vec3's
+ *
+ * @param {vec3} out the receiving vector
+ * @param {ReadonlyVec3} a the first operand
+ * @param {ReadonlyVec3} b the second operand
+ * @returns {vec3} out
+ */
+
+function max(out, a, b) {
+  out[0] = Math.max(a[0], b[0]);
+  out[1] = Math.max(a[1], b[1]);
+  out[2] = Math.max(a[2], b[2]);
+  return out;
+}
+/**
+ * Scales a vec3 by a scalar number
+ *
+ * @param {vec3} out the receiving vector
+ * @param {ReadonlyVec3} a the vector to scale
+ * @param {Number} b amount to scale the vector by
+ * @returns {vec3} out
+ */
+
+function scale$1(out, a, b) {
+  out[0] = a[0] * b;
+  out[1] = a[1] * b;
+  out[2] = a[2] * b;
+  return out;
+}
+/**
+ * Normalize a vec3
+ *
+ * @param {vec3} out the receiving vector
+ * @param {ReadonlyVec3} a vector to normalize
+ * @returns {vec3} out
+ */
+
+function normalize(out, a) {
+  var x = a[0];
+  var y = a[1];
+  var z = a[2];
+  var len = x * x + y * y + z * z;
+
+  if (len > 0) {
+    //TODO: evaluate use of glm_invsqrt here?
+    len = 1 / Math.sqrt(len);
+  }
+
+  out[0] = a[0] * len;
+  out[1] = a[1] * len;
+  out[2] = a[2] * len;
+  return out;
+}
+/**
+ * Transforms the vec3 with a mat4.
+ * 4th vector component is implicitly '1'
+ *
+ * @param {vec3} out the receiving vector
+ * @param {ReadonlyVec3} a the vector to transform
+ * @param {ReadonlyMat4} m matrix to transform with
+ * @returns {vec3} out
+ */
+
+function transformMat4(out, a, m) {
+  var x = a[0],
+      y = a[1],
+      z = a[2];
+  var w = m[3] * x + m[7] * y + m[11] * z + m[15];
+  w = w || 1.0;
+  out[0] = (m[0] * x + m[4] * y + m[8] * z + m[12]) / w;
+  out[1] = (m[1] * x + m[5] * y + m[9] * z + m[13]) / w;
+  out[2] = (m[2] * x + m[6] * y + m[10] * z + m[14]) / w;
+  return out;
+}
+/**
+ * Transforms the vec3 with a mat3.
+ *
+ * @param {vec3} out the receiving vector
+ * @param {ReadonlyVec3} a the vector to transform
+ * @param {ReadonlyMat3} m the 3x3 matrix to transform with
+ * @returns {vec3} out
+ */
+
+function transformMat3(out, a, m) {
+  var x = a[0],
+      y = a[1],
+      z = a[2];
+  out[0] = x * m[0] + y * m[3] + z * m[6];
+  out[1] = x * m[1] + y * m[4] + z * m[7];
+  out[2] = x * m[2] + y * m[5] + z * m[8];
+  return out;
+}
+/**
+ * Alias for {@link vec3.multiply}
+ * @function
+ */
+
+var mul$1 = multiply$1;
+/**
+ * Perform some operation over an array of vec3s.
+ *
+ * @param {Array} a the array of vectors to iterate over
+ * @param {Number} stride Number of elements between the start of each vec3. If 0 assumes tightly packed
+ * @param {Number} offset Number of elements to skip at the beginning of the array
+ * @param {Number} count Number of vec3s to iterate over. If 0 iterates over entire array
+ * @param {Function} fn Function to call for each vector in the array
+ * @param {Object} [arg] additional argument to pass to fn
+ * @returns {Array} a
+ * @function
+ */
+
+(function () {
+  var vec = create$1();
+  return function (a, stride, offset, count, fn, arg) {
+    var i, l;
+
+    if (!stride) {
+      stride = 3;
+    }
+
+    if (!offset) {
+      offset = 0;
+    }
+
+    if (count) {
+      l = Math.min(count * stride + offset, a.length);
+    } else {
+      l = a.length;
+    }
+
+    for (i = offset; i < l; i += stride) {
+      vec[0] = a[i];
+      vec[1] = a[i + 1];
+      vec[2] = a[i + 2];
+      fn(vec, vec, arg);
+      a[i] = vec[0];
+      a[i + 1] = vec[1];
+      a[i + 2] = vec[2];
+    }
+
+    return a;
+  };
+})();
+
+/**
+ * CONTRIBUTOR NOTES
+ *
+ * Ideally a weld() implementation should be fast, robust, and tunable. The
+ * writeup below tracks my attempts to solve for these constraints.
+ *
+ * (Approach #1) Follow the mergeVertices() implementation of three.js,
+ * hashing vertices with a string concatenation of all vertex attributes.
+ * The approach does not allow per-attribute tolerance in local units.
+ *
+ * (Approach #2) Sort points along the X axis, then make cheaper
+ * searches up/down the sorted list for merge candidates. While this allows
+ * simpler comparison based on specified tolerance, it's much slower, even
+ * for cases where choice of the X vs. Y or Z axes is reasonable.
+ *
+ * (Approach #3) Attempted a Delaunay triangulation in three dimensions,
+ * expecting it would be an n * log(n) algorithm, but the only implementation
+ * I found (with delaunay-triangulate) appeared to be much slower than that,
+ * and was notably slower than the sort-based approach, just building the
+ * Delaunay triangulation alone.
+ *
+ * (Approach #4) Hybrid of (1) and (2), assigning vertices to a spatial
+ * grid, then searching the local neighborhood (27 cells) for weld candidates.
+ *
+ * (Approach #5) Based on Meshoptimizer's implementation, when tolerance=0
+ * use a hashtable to find bitwise-equal vertices quickly. Vastly faster than
+ * previous approaches, but without tolerance options.
+ *
+ * RESULTS: For the "Lovecraftian" sample model linked below, after joining,
+ * a primitive with 873,000 vertices can be welded down to 230,000 vertices.
+ * https://sketchfab.com/3d-models/sculpt-january-day-19-lovecraftian-34ad2501108e4fceb9394f5b816b9f42
+ *
+ * - (1) Not tested, but prior results suggest not robust enough.
+ * - (2) 30s
+ * - (3) 660s
+ * - (4) 5s exhaustive, 1.5s non-exhaustive
+ * - (5) 0.2s
+ *
+ * As of April 2024, the lossy weld was removed, leaving only approach #5. An
+ * upcoming Meshoptimizer release will include a simplifyWithAttributes
+ * function allowing simplification with weighted consideration of vertex
+ * attributes, which I hope to support. With that, weld() may remain faster,
+ * simpler, and more maintainable.
+ */
+const NAME$p = 'weld';
+const WELD_DEFAULTS = {
+  overwrite: true
+};
+/**
+ * Welds {@link Primitive Primitives}, merging bitwise identical vertices. When
+ * merged and indexed, data is shared more efficiently between vertices. File size
+ * can be reduced, and the GPU uses the vertex cache more efficiently.
+ *
+ * Example:
+ *
+ * ```javascript
+ * import { weld, getSceneVertexCount, VertexCountMethod } from '@gltf-transform/functions';
+ *
+ * const scene = document.getDefaultScene();
+ * const srcVertexCount = getSceneVertexCount(scene, VertexCountMethod.UPLOAD);
+ * await document.transform(weld());
+ * const dstVertexCount = getSceneVertexCount(scene, VertexCountMethod.UPLOAD);
+ * ```
+ *
+ * @category Transforms
+ */
+function weld(_options = WELD_DEFAULTS) {
+  const options = assignDefaults(WELD_DEFAULTS, _options);
+  return createTransform(NAME$p, async doc => {
+    const logger = doc.getLogger();
+    for (const mesh of doc.getRoot().listMeshes()) {
+      for (const prim of mesh.listPrimitives()) {
+        weldPrimitive(prim, options);
+        if (getPrimitiveVertexCount(prim, VertexCountMethod.RENDER) === 0) {
+          deepDisposePrimitive(prim);
+        }
+      }
+      if (mesh.listPrimitives().length === 0) mesh.dispose();
+    }
+    logger.debug(`${NAME$p}: Complete.`);
+  });
+}
+/**
+ * Welds a {@link Primitive}, merging bitwise identical vertices. When merged
+ * and indexed, data is shared more efficiently between vertices. File size can
+ * be reduced, and the GPU uses the vertex cache more efficiently.
+ *
+ * Example:
+ *
+ * ```javascript
+ * import { weldPrimitive, getMeshVertexCount, VertexCountMethod } from '@gltf-transform/functions';
+ *
+ * const mesh = document.getRoot().listMeshes()
+ * 	.find((mesh) => mesh.getName() === 'Gizmo');
+ *
+ * const srcVertexCount = getMeshVertexCount(mesh, VertexCountMethod.UPLOAD);
+ *
+ * for (const prim of mesh.listPrimitives()) {
+ *   weldPrimitive(prim);
+ * }
+ *
+ * const dstVertexCount = getMeshVertexCount(mesh, VertexCountMethod.UPLOAD);
+ * ```
+ */
+function weldPrimitive(prim, _options = WELD_DEFAULTS) {
+  const graph = prim.getGraph();
+  const document = Document.fromGraph(graph);
+  const logger = document.getLogger();
+  const options = _extends({}, WELD_DEFAULTS, _options);
+  if (prim.getIndices() && !options.overwrite) return;
+  if (prim.getMode() === Primitive.Mode.POINTS) return;
+  const srcVertexCount = prim.getAttribute('POSITION').getCount();
+  const srcIndices = prim.getIndices();
+  const srcIndicesArray = srcIndices == null ? void 0 : srcIndices.getArray();
+  const srcIndicesCount = srcIndices ? srcIndices.getCount() : srcVertexCount;
+  const stream = new VertexStream(prim);
+  const tableSize = ceilPowerOfTwo$1(srcVertexCount + srcVertexCount / 4);
+  const table = new Uint32Array(tableSize).fill(EMPTY_U32$1);
+  const writeMap = new Uint32Array(srcVertexCount).fill(EMPTY_U32$1); // oldIndex → newIndex
+  // (1) Compare and identify indices to weld.
+  let dstVertexCount = 0;
+  for (let i = 0; i < srcIndicesCount; i++) {
+    const srcIndex = srcIndicesArray ? srcIndicesArray[i] : i;
+    if (writeMap[srcIndex] !== EMPTY_U32$1) continue;
+    const hashIndex = hashLookup(table, tableSize, stream, srcIndex, EMPTY_U32$1);
+    const dstIndex = table[hashIndex];
+    if (dstIndex === EMPTY_U32$1) {
+      table[hashIndex] = srcIndex;
+      writeMap[srcIndex] = dstVertexCount++;
+    } else {
+      writeMap[srcIndex] = writeMap[dstIndex];
+    }
+  }
+  logger.debug(`${NAME$p}: ${formatDeltaOp(srcVertexCount, dstVertexCount)} vertices.`);
+  compactPrimitive(prim, writeMap, dstVertexCount);
+}

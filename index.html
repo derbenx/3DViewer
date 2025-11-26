@@ -310,7 +310,6 @@
                 </div>
                 <hr>
             </div>
-            <div id="version-info" style="font-size: 12px; color: #888; position: absolute; bottom: 10px;"></div>
         </div>
     </div>
     <canvas id="c"></canvas>
@@ -319,6 +318,12 @@
             "imports": {
                 "three": "./js/three/build/three.module.js",
                 "three/addons/": "./js/three/examples/jsm/",
+                "ktx-parse": "./js/ktx-parse/ktx-parse.js",
+                "property-graph": "./js/property-graph/property-graph.js",
+                "buffer": "./js/buffer/buffer.js",
+                "ndarray": "./js/ndarray/ndarray.js",
+                "ndarray-pixels": "./js/ndarray-pixels/ndarray-pixels.js",
+                "ndarray-lanczos": "./js/ndarray-lanczos/ndarray-lanczos.js",
                 "@gltf-transform/core": "./js/gltf-transform/core.js",
                 "@gltf-transform/extensions": "./js/gltf-transform/extensions.js",
                 "@gltf-transform/functions": "./js/gltf-transform/functions.js"
@@ -1395,16 +1400,6 @@
         window.addEventListener('DOMContentLoaded', main);
     </script>
     <script>
-        fetch('version.json')
-            .then(response => response.json())
-            .then(data => {
-                const versionDiv = document.getElementById('version-info');
-                if (versionDiv) {
-                    versionDiv.textContent = `Version: ${data.version}`;
-                }
-            })
-            .catch(err => console.error('Failed to load version:', err));
-
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
                 navigator.serviceWorker.register('./sw.js')
