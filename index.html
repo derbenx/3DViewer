@@ -90,6 +90,13 @@
                 <label><input type="radio" name="view-mode" value="room"> Environment</label>
             </div>
             <hr>
+            <h4>Settings</h4>
+            <div>
+                <label><input type="checkbox" id="toggle-spotlight"> Camera Spotlight</label><br>
+                <label><input type="checkbox" id="toggle-shadows"> Enable Shadows</label><br>
+                <label><input type="checkbox" id="toggle-animations"> Animate Model</label>
+            </div>
+            <hr>
             <h4>Sample Models</h4>
             <div id="sample-models-list"></div>
         </div>
@@ -118,6 +125,7 @@
             const STANDING_HEIGHT = 1.6;
             let lat = 0;
             let lon = -90;
+            let mixer = null;
 
             const panel = document.getElementById('side-panel');
             const toggleButton = document.getElementById('panel-toggle-button');
@@ -133,9 +141,39 @@
                 });
             });
 
+            document.getElementById('toggle-spotlight').addEventListener('change', (e) => {
+                cameraSpotlight.visible = e.target.checked;
+            });
+
+            document.getElementById('toggle-shadows').addEventListener('change', (e) => {
+                const enabled = e.target.checked;
+                renderer.shadowMap.enabled = enabled;
+                directionalLight.castShadow = enabled;
+                cameraSpotlight.castShadow = enabled;
+
+                // Refresh all materials
+                scene.traverse((node) => {
+                    if (node.isMesh && node.material) {
+                        node.material.needsUpdate = true;
+                    }
+                });
+            });
+
+            document.getElementById('toggle-animations').addEventListener('change', (e) => {
+                if (mixer) {
+                    if (e.target.checked) {
+                        mixer.existingAnimations.forEach(clip => mixer.clipAction(clip).play());
+                    } else {
+                        mixer.stopAllAction();
+                    }
+                }
+            });
+
             const canvas = document.querySelector('#c');
             const renderer = new THREE.WebGLRenderer({canvas, antialias: true, alpha: true});
             renderer.xr.enabled = true;
+            renderer.shadowMap.enabled = false;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
             const webxrButtonsContainer = document.getElementById('webxr-buttons');
             webxrButtonsContainer.appendChild(VRButton.createButton(renderer));
@@ -213,6 +251,19 @@
             const camera = new THREE.PerspectiveCamera(fov, aspect, near, far);
             camera.position.set(0, 1, 5);
 
+            const cameraSpotlight = new THREE.SpotLight(0xffffff, 5);
+            cameraSpotlight.angle = Math.PI / 4;
+            cameraSpotlight.penumbra = 0.1;
+            cameraSpotlight.decay = 2;
+            cameraSpotlight.distance = 200;
+            cameraSpotlight.visible = false;
+            camera.add(cameraSpotlight);
+
+            const spotlightTarget = new THREE.Object3D();
+            spotlightTarget.position.set(0, 0, -1);
+            camera.add(spotlightTarget);
+            cameraSpotlight.target = spotlightTarget;
+
             const controls = new OrbitControls(camera, canvas);
             controls.target.set(0, 1, 0);
             controls.update();
@@ -273,14 +324,15 @@
                 scene.add(light);
             }
 
+            let directionalLight;
             {
                 const color = 0xFFFFFF;
                 const intensity = 1;
-                const light = new THREE.DirectionalLight(color, intensity);
-                light.position.set(0, 10, 5);
-                light.target.position.set(-5, 0, 0);
-                scene.add(light);
-                scene.add(light.target);
+                directionalLight = new THREE.DirectionalLight(color, intensity);
+                directionalLight.position.set(0, 10, 5);
+                directionalLight.target.position.set(-5, 0, 0);
+                scene.add(directionalLight);
+                scene.add(directionalLight.target);
             }
 
             const gltfLoader = new GLTFLoader();
@@ -323,8 +375,32 @@
                 }
             }
 
-            function setModel(object) {
+            function setModel(object, animations = []) {
                 // The object could be a Group from GLTF/FBX/OBJ or a Mesh from STL
+
+                // Configure shadows
+                object.traverse((node) => {
+                    if (node.isMesh) {
+                        node.castShadow = true;
+                        node.receiveShadow = true;
+                    }
+                });
+
+                // Handle animations
+                if (mixer) {
+                    mixer.stopAllAction();
+                    mixer.uncacheRoot(mixer._root);
+                }
+
+                if (animations && animations.length > 0) {
+                    mixer = new THREE.AnimationMixer(object);
+                    mixer.existingAnimations = animations;
+                    if (document.getElementById('toggle-animations').checked) {
+                        animations.forEach(clip => mixer.clipAction(clip).play());
+                    }
+                } else {
+                    mixer = null;
+                }
 
                 // Ensure the model rotates around its center
                 const box = new THREE.Box3().setFromObject(object);
@@ -361,7 +437,7 @@
                         if (extension === 'gltf' || extension === 'glb') {
                             // GLTFLoader is async
                             gltfLoader.parse(contents, '', (gltf) => {
-                                setModel(gltf.scene);
+                                setModel(gltf.scene, gltf.animations);
                             }, (error) => {
                                 alert(`An error occurred parsing the GLTF model: ${error.message}`);
                                 console.error(error);
@@ -372,7 +448,10 @@
                             switch (extension) {
                                 case 'fbx':
                                     object = fbxLoader.parse(contents);
-                                    break;
+                                    // FBXLoader.parse returns the group which has animations attached in some versions,
+                                    // but usually we get them from the object.animations
+                                    setModel(object, object.animations);
+                                    return;
                                 case 'obj':
                                     object = objLoader.parse(contents);
                                     break;
@@ -416,11 +495,11 @@
                     case 'gltf':
                     case 'glb':
                         loader = gltfLoader;
-                        onLoad = (gltf) => setModel(gltf.scene);
+                        onLoad = (gltf) => setModel(gltf.scene, gltf.animations);
                         break;
                     case 'fbx':
                         loader = fbxLoader;
-                        onLoad = (object) => setModel(object);
+                        onLoad = (object) => setModel(object, object.animations);
                         break;
                     case 'obj':
                         loader = objLoader;
@@ -533,6 +612,10 @@
             function render() {
                 const delta = clock.getDelta();
                 handleControllerInput(delta);
+
+                if (mixer) {
+                    mixer.update(delta);
+                }
 
                 if (resizeRendererToDisplaySize(renderer)) {
                     const canvas = renderer.domElement;
