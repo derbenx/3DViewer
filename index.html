@@ -140,7 +140,9 @@
             let mixer = null;
             let directionalLight;
             let cameraSpotlight;
-            let camera;
+            let modelCamera;
+            let roomCamera;
+            let activeCamera;
             let controls;
             let renderer;
             let scene;
@@ -274,13 +276,13 @@
                     const box = new THREE.Box3().setFromObject(model);
                     const boxSize = box.getSize(new THREE.Vector3()).length();
                     const boxCenter = box.getCenter(new THREE.Vector3());
-                    frameArea(boxSize * 1.2, boxSize, boxCenter, camera);
+                    frameArea(boxSize * 1.2, boxSize, boxCenter, modelCamera);
                     controls.target.copy(boxCenter);
                     controls.update();
                 }
 
                 // Reset camera rig position
-                const cameraRig = renderer.xr.getCamera(camera);
+                const cameraRig = renderer.xr.getCamera(activeCamera);
                 cameraRig.position.set(0, 0, 0);
             });
 
@@ -288,8 +290,13 @@
             const aspect = 2;  // the canvas default
             const near = 0.1;
             const far = 100;
-            camera = new THREE.PerspectiveCamera(fov, aspect, near, far);
-            camera.position.set(0, 1, 5);
+            modelCamera = new THREE.PerspectiveCamera(fov, aspect, near, far);
+            modelCamera.position.set(0, 1, 5);
+
+            roomCamera = new THREE.PerspectiveCamera(fov, aspect, near, far);
+            roomCamera.position.set(0, standingHeight, 0);
+
+            activeCamera = modelCamera;
 
             cameraSpotlight = new THREE.SpotLight(0xffffff, 5);
             cameraSpotlight.angle = Math.PI / 4;
@@ -297,14 +304,13 @@
             cameraSpotlight.decay = 2;
             cameraSpotlight.distance = 200;
             cameraSpotlight.visible = false;
-            camera.add(cameraSpotlight);
 
             const spotlightTarget = new THREE.Object3D();
             spotlightTarget.position.set(0, 0, -1);
-            camera.add(spotlightTarget);
+            // Default target, will be added to active camera in updateView
             cameraSpotlight.target = spotlightTarget;
 
-            controls = new OrbitControls(camera, canvas);
+            controls = new OrbitControls(modelCamera, canvas);
             controls.target.set(0, 1, 0);
             controls.update();
 
@@ -317,7 +323,8 @@
             });
 
             scene = new THREE.Scene();
-            scene.add(camera);
+            scene.add(modelCamera);
+            scene.add(roomCamera);
 
             // VR Controllers Setup
             const controller1 = renderer.xr.getController(0);
@@ -371,8 +378,7 @@
                 directionalLight = new THREE.DirectionalLight(color, intensity);
                 // Positioned relative to camera as a headlight
                 directionalLight.position.set(5, 5, 5);
-                camera.add(directionalLight);
-                camera.add(directionalLight.target);
+                // directionalLight and target will be added to active camera in updateView
                 directionalLight.target.position.set(0, 0, -5);
             }
 
@@ -386,31 +392,28 @@
                 viewMode = document.querySelector('input[name="view-mode"]:checked').value;
 
                 if (viewMode === 'model') {
+                    activeCamera = modelCamera;
                     controls.enabled = true;
                     if (modelGroup) {
                         const newBox = new THREE.Box3().setFromObject(modelGroup);
                         const boxSize = newBox.getSize(new THREE.Vector3()).length();
                         const boxCenter = newBox.getCenter(new THREE.Vector3());
 
-                        frameArea(boxSize * 1.2, boxSize, boxCenter, camera);
+                        frameArea(boxSize * 1.2, boxSize, boxCenter, modelCamera);
 
                         controls.maxDistance = boxSize * 10;
                         controls.target.copy(boxCenter);
                     } else {
                         // Default view if no model
-                        camera.position.set(0, 1, 5);
+                        modelCamera.position.set(0, 1, 5);
                         controls.target.set(0, 1, 0);
                     }
                     controls.update();
                 } else {
                     // Room mode
+                    activeCamera = roomCamera;
                     controls.enabled = false;
-                    let yPos = standingHeight;
-                    if (modelGroup) {
-                        const box = new THREE.Box3().setFromObject(modelGroup);
-                        yPos = box.min.y + standingHeight;
-                    }
-                    camera.position.set(0, yPos, 0);
+                    roomCamera.position.set(0, standingHeight, 0);
                     if (resetRotation) {
                         lat = 0;
                         lon = -90;
@@ -420,12 +423,18 @@
                     const phi = THREE.MathUtils.degToRad(90 - lat);
                     const theta = THREE.MathUtils.degToRad(lon);
                     const target = new THREE.Vector3(
-                        camera.position.x + Math.sin(phi) * Math.cos(theta),
-                        camera.position.y + Math.cos(phi),
-                        camera.position.z + Math.sin(phi) * Math.sin(theta)
+                        roomCamera.position.x + Math.sin(phi) * Math.cos(theta),
+                        roomCamera.position.y + Math.cos(phi),
+                        roomCamera.position.z + Math.sin(phi) * Math.sin(theta)
                     );
-                    camera.lookAt(target);
+                    roomCamera.lookAt(target);
                 }
+
+                // Parent lights to active camera
+                activeCamera.add(directionalLight);
+                activeCamera.add(directionalLight.target);
+                activeCamera.add(cameraSpotlight);
+                activeCamera.add(cameraSpotlight.target);
             }
 
             function setModel(object, animations = []) {
@@ -454,11 +463,6 @@
                 } else {
                     mixer = null;
                 }
-
-                // Ensure the model rotates around its center
-                const box = new THREE.Box3().setFromObject(object);
-                const center = box.getCenter(new THREE.Vector3());
-                object.position.sub(center); // Center the model's geometry
 
                 const modelGroup = new THREE.Group();
                 modelGroup.name = 'user_model';
@@ -677,22 +681,24 @@
 
                 if (resizeRendererToDisplaySize(renderer)) {
                     const canvas = renderer.domElement;
-                    camera.aspect = canvas.clientWidth / canvas.clientHeight;
-                    camera.updateProjectionMatrix();
+                    modelCamera.aspect = canvas.clientWidth / canvas.clientHeight;
+                    modelCamera.updateProjectionMatrix();
+                    roomCamera.aspect = canvas.clientWidth / canvas.clientHeight;
+                    roomCamera.updateProjectionMatrix();
                 }
 
                 if (viewMode === 'room') {
                     const phi = THREE.MathUtils.degToRad(90 - lat);
                     const theta = THREE.MathUtils.degToRad(lon);
                     const target = new THREE.Vector3(
-                        camera.position.x + Math.sin(phi) * Math.cos(theta),
-                        camera.position.y + Math.cos(phi),
-                        camera.position.z + Math.sin(phi) * Math.sin(theta)
+                        roomCamera.position.x + Math.sin(phi) * Math.cos(theta),
+                        roomCamera.position.y + Math.cos(phi),
+                        roomCamera.position.z + Math.sin(phi) * Math.sin(theta)
                     );
-                    camera.lookAt(target);
+                    roomCamera.lookAt(target);
                 }
 
-                renderer.render(scene, camera);
+                renderer.render(scene, activeCamera);
             }
 
             // Initial state from DOM
@@ -715,13 +721,16 @@
 
             // Expose for debugging/testing
             window.THREE = THREE;
-            window.camera = camera;
+            window.modelCamera = modelCamera;
+            window.roomCamera = roomCamera;
+            window.activeCamera = () => activeCamera;
             window.scene = scene;
             window.controls = controls;
             window.directionalLight = directionalLight;
             window.cameraSpotlight = cameraSpotlight;
             window.standingHeight = () => standingHeight;
             window.lightBrightness = () => lightBrightness;
+            window.setModel = setModel;
 
             renderer.setAnimationLoop(render);
         }
