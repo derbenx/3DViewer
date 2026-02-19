@@ -92,9 +92,20 @@
             <hr>
             <h4>Settings</h4>
             <div>
+                <label><input type="checkbox" id="toggle-directional" checked> Headlight</label><br>
                 <label><input type="checkbox" id="toggle-spotlight"> Camera Spotlight</label><br>
                 <label><input type="checkbox" id="toggle-shadows"> Enable Shadows</label><br>
                 <label><input type="checkbox" id="toggle-animations"> Animate Model</label>
+            </div>
+            <div style="margin-top: 10px;">
+                <label>Standing Height: <span id="height-val">1.6</span>m<br>
+                    <input type="range" id="slider-height" min="0.1" max="3.0" step="0.1" value="1.6" style="width: 100%;">
+                </label>
+            </div>
+            <div style="margin-top: 10px;">
+                <label>Light Brightness: <span id="brightness-val">1.0</span><br>
+                    <input type="range" id="slider-brightness" min="0" max="10" step="0.1" value="1" style="width: 100%;">
+                </label>
             </div>
             <hr>
             <h4>Sample Models</h4>
@@ -122,10 +133,17 @@
 
         function main() {
             let viewMode = 'model';
-            const STANDING_HEIGHT = 1.6;
+            let standingHeight = 1.6;
+            let lightBrightness = 1.0;
             let lat = 0;
             let lon = -90;
             let mixer = null;
+            let directionalLight;
+            let cameraSpotlight;
+            let camera;
+            let controls;
+            let renderer;
+            let scene;
 
             const panel = document.getElementById('side-panel');
             const toggleButton = document.getElementById('panel-toggle-button');
@@ -135,15 +153,35 @@
             });
 
             document.querySelectorAll('input[name="view-mode"]').forEach(radio => {
-                radio.addEventListener('change', (e) => {
-                    viewMode = e.target.value;
+                radio.addEventListener('change', () => {
                     updateView();
                 });
+            });
+
+            document.getElementById('toggle-directional').addEventListener('change', (e) => {
+                directionalLight.visible = e.target.checked;
             });
 
             document.getElementById('toggle-spotlight').addEventListener('change', (e) => {
                 cameraSpotlight.visible = e.target.checked;
             });
+
+            document.getElementById('slider-height').addEventListener('input', (e) => {
+                standingHeight = parseFloat(e.target.value);
+                document.getElementById('height-val').textContent = standingHeight.toFixed(1);
+                updateView();
+            });
+
+            document.getElementById('slider-brightness').addEventListener('input', (e) => {
+                lightBrightness = parseFloat(e.target.value);
+                document.getElementById('brightness-val').textContent = lightBrightness.toFixed(1);
+                updateLightBrightness();
+            });
+
+            function updateLightBrightness() {
+                if (directionalLight) directionalLight.intensity = lightBrightness;
+                if (cameraSpotlight) cameraSpotlight.intensity = lightBrightness * 5; // maintain 5x ratio
+            }
 
             document.getElementById('toggle-shadows').addEventListener('change', (e) => {
                 const enabled = e.target.checked;
@@ -170,7 +208,7 @@
             });
 
             const canvas = document.querySelector('#c');
-            const renderer = new THREE.WebGLRenderer({canvas, antialias: true, alpha: true});
+            renderer = new THREE.WebGLRenderer({canvas, antialias: true, alpha: true});
             renderer.xr.enabled = true;
             renderer.shadowMap.enabled = false;
             renderer.shadowMap.type = THREE.PCFSoftShadowMap;
@@ -248,10 +286,10 @@
             const aspect = 2;  // the canvas default
             const near = 0.1;
             const far = 100;
-            const camera = new THREE.PerspectiveCamera(fov, aspect, near, far);
+            camera = new THREE.PerspectiveCamera(fov, aspect, near, far);
             camera.position.set(0, 1, 5);
 
-            const cameraSpotlight = new THREE.SpotLight(0xffffff, 5);
+            cameraSpotlight = new THREE.SpotLight(0xffffff, 5);
             cameraSpotlight.angle = Math.PI / 4;
             cameraSpotlight.penumbra = 0.1;
             cameraSpotlight.decay = 2;
@@ -264,7 +302,7 @@
             camera.add(spotlightTarget);
             cameraSpotlight.target = spotlightTarget;
 
-            const controls = new OrbitControls(camera, canvas);
+            controls = new OrbitControls(camera, canvas);
             controls.target.set(0, 1, 0);
             controls.update();
 
@@ -276,7 +314,8 @@
                 }
             });
 
-            const scene = new THREE.Scene();
+            scene = new THREE.Scene();
+            scene.add(camera);
 
             // VR Controllers Setup
             const controller1 = renderer.xr.getController(0);
@@ -324,15 +363,15 @@
                 scene.add(light);
             }
 
-            let directionalLight;
             {
                 const color = 0xFFFFFF;
                 const intensity = 1;
                 directionalLight = new THREE.DirectionalLight(color, intensity);
-                directionalLight.position.set(0, 10, 5);
-                directionalLight.target.position.set(-5, 0, 0);
-                scene.add(directionalLight);
-                scene.add(directionalLight.target);
+                // Positioned relative to camera as a headlight
+                directionalLight.position.set(5, 5, 5);
+                camera.add(directionalLight);
+                camera.add(directionalLight.target);
+                directionalLight.target.position.set(0, 0, -5);
             }
 
             const gltfLoader = new GLTFLoader();
@@ -342,6 +381,7 @@
 
             function updateView() {
                 const modelGroup = scene.getObjectByName('user_model');
+                viewMode = document.querySelector('input[name="view-mode"]:checked').value;
 
                 if (viewMode === 'model') {
                     controls.enabled = true;
@@ -354,12 +394,16 @@
 
                         controls.maxDistance = boxSize * 10;
                         controls.target.copy(boxCenter);
-                        controls.update();
+                    } else {
+                        // Default view if no model
+                        camera.position.set(0, 1, 5);
+                        controls.target.set(0, 1, 0);
                     }
+                    controls.update();
                 } else {
                     // Room mode
                     controls.enabled = false;
-                    camera.position.set(0, STANDING_HEIGHT, 0);
+                    camera.position.set(0, standingHeight, 0);
                     lat = 0;
                     lon = -90;
 
@@ -636,6 +680,33 @@
 
                 renderer.render(scene, camera);
             }
+
+            // Initial state from DOM
+            directionalLight.visible = document.getElementById('toggle-directional').checked;
+            cameraSpotlight.visible = document.getElementById('toggle-spotlight').checked;
+
+            standingHeight = parseFloat(document.getElementById('slider-height').value);
+            document.getElementById('height-val').textContent = standingHeight.toFixed(1);
+
+            lightBrightness = parseFloat(document.getElementById('slider-brightness').value);
+            document.getElementById('brightness-val').textContent = lightBrightness.toFixed(1);
+            updateLightBrightness();
+
+            const shadowEnabled = document.getElementById('toggle-shadows').checked;
+            renderer.shadowMap.enabled = shadowEnabled;
+            directionalLight.castShadow = shadowEnabled;
+            cameraSpotlight.castShadow = shadowEnabled;
+
+            updateView();
+
+            // Expose for debugging/testing
+            window.camera = camera;
+            window.scene = scene;
+            window.controls = controls;
+            window.directionalLight = directionalLight;
+            window.cameraSpotlight = cameraSpotlight;
+            window.standingHeight = () => standingHeight;
+            window.lightBrightness = () => lightBrightness;
 
             renderer.setAnimationLoop(render);
         }
