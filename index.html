@@ -84,6 +84,12 @@
             <input type="file" id="file-input" accept=".gltf,.glb,.fbx,.obj,.stl" />
             <div id="webxr-buttons"></div>
             <hr>
+            <h4>View Mode</h4>
+            <div id="view-mode-options">
+                <label><input type="radio" name="view-mode" value="model" checked> Model</label><br>
+                <label><input type="radio" name="view-mode" value="room"> Environment</label>
+            </div>
+            <hr>
             <h4>Sample Models</h4>
             <div id="sample-models-list"></div>
         </div>
@@ -108,11 +114,23 @@
         import { STLLoader } from 'three/addons/loaders/STLLoader.js';
 
         function main() {
+            let viewMode = 'model';
+            const STANDING_HEIGHT = 1.6;
+            let lat = 0;
+            let lon = -90;
+
             const panel = document.getElementById('side-panel');
             const toggleButton = document.getElementById('panel-toggle-button');
 
             toggleButton.addEventListener('click', () => {
                 panel.classList.toggle('visible');
+            });
+
+            document.querySelectorAll('input[name="view-mode"]').forEach(radio => {
+                radio.addEventListener('change', (e) => {
+                    viewMode = e.target.value;
+                    updateView();
+                });
             });
 
             const canvas = document.querySelector('#c');
@@ -199,6 +217,14 @@
             controls.target.set(0, 1, 0);
             controls.update();
 
+            canvas.addEventListener('pointermove', (e) => {
+                if (viewMode === 'room' && e.buttons === 1) {
+                    lon -= e.movementX * 0.1;
+                    lat += e.movementY * 0.1;
+                    lat = Math.max(-85, Math.min(85, lat));
+                }
+            });
+
             const scene = new THREE.Scene();
 
             // VR Controllers Setup
@@ -262,6 +288,41 @@
             const objLoader = new OBJLoader();
             const stlLoader = new STLLoader();
 
+            function updateView() {
+                const modelGroup = scene.getObjectByName('user_model');
+
+                if (viewMode === 'model') {
+                    controls.enabled = true;
+                    if (modelGroup) {
+                        const newBox = new THREE.Box3().setFromObject(modelGroup);
+                        const boxSize = newBox.getSize(new THREE.Vector3()).length();
+                        const boxCenter = newBox.getCenter(new THREE.Vector3());
+
+                        frameArea(boxSize * 1.2, boxSize, boxCenter, camera);
+
+                        controls.maxDistance = boxSize * 10;
+                        controls.target.copy(boxCenter);
+                        controls.update();
+                    }
+                } else {
+                    // Room mode
+                    controls.enabled = false;
+                    camera.position.set(0, STANDING_HEIGHT, 0);
+                    lat = 0;
+                    lon = -90;
+
+                    // Initial lookAt
+                    const phi = THREE.MathUtils.degToRad(90 - lat);
+                    const theta = THREE.MathUtils.degToRad(lon);
+                    const target = new THREE.Vector3(
+                        camera.position.x + Math.sin(phi) * Math.cos(theta),
+                        camera.position.y + Math.cos(phi),
+                        camera.position.z + Math.sin(phi) * Math.sin(theta)
+                    );
+                    camera.lookAt(target);
+                }
+            }
+
             function setModel(object) {
                 // The object could be a Group from GLTF/FBX/OBJ or a Mesh from STL
 
@@ -281,16 +342,7 @@
                 }
                 scene.add(modelGroup);
 
-                // center and frame the new model group
-                const newBox = new THREE.Box3().setFromObject(modelGroup);
-                const boxSize = newBox.getSize(new THREE.Vector3()).length();
-                const boxCenter = newBox.getCenter(new THREE.Vector3());
-
-                frameArea(boxSize * 1.2, boxSize, boxCenter, camera);
-
-                controls.maxDistance = boxSize * 10;
-                controls.target.copy(boxCenter);
-                controls.update();
+                updateView();
             }
 
             const fileInput = document.getElementById('file-input');
@@ -487,6 +539,18 @@
                     camera.aspect = canvas.clientWidth / canvas.clientHeight;
                     camera.updateProjectionMatrix();
                 }
+
+                if (viewMode === 'room') {
+                    const phi = THREE.MathUtils.degToRad(90 - lat);
+                    const theta = THREE.MathUtils.degToRad(lon);
+                    const target = new THREE.Vector3(
+                        camera.position.x + Math.sin(phi) * Math.cos(theta),
+                        camera.position.y + Math.cos(phi),
+                        camera.position.z + Math.sin(phi) * Math.sin(theta)
+                    );
+                    camera.lookAt(target);
+                }
+
                 renderer.render(scene, camera);
             }
 
