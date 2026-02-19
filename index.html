@@ -154,7 +154,7 @@
 
             document.querySelectorAll('input[name="view-mode"]').forEach(radio => {
                 radio.addEventListener('change', () => {
-                    updateView();
+                    updateView(true);
                 });
             });
 
@@ -169,7 +169,9 @@
             document.getElementById('slider-height').addEventListener('input', (e) => {
                 standingHeight = parseFloat(e.target.value);
                 document.getElementById('height-val').textContent = standingHeight.toFixed(1);
-                updateView();
+                if (viewMode === 'room') {
+                    updateView(false);
+                }
             });
 
             document.getElementById('slider-brightness').addEventListener('input', (e) => {
@@ -379,7 +381,7 @@
             const objLoader = new OBJLoader();
             const stlLoader = new STLLoader();
 
-            function updateView() {
+            function updateView(resetRotation = true) {
                 const modelGroup = scene.getObjectByName('user_model');
                 viewMode = document.querySelector('input[name="view-mode"]:checked').value;
 
@@ -404,8 +406,10 @@
                     // Room mode
                     controls.enabled = false;
                     camera.position.set(0, standingHeight, 0);
-                    lat = 0;
-                    lon = -90;
+                    if (resetRotation) {
+                        lat = 0;
+                        lon = -90;
+                    }
 
                     // Initial lookAt
                     const phi = THREE.MathUtils.degToRad(90 - lat);
@@ -575,8 +579,13 @@
 
               const direction = (new THREE.Vector3())
                   .subVectors(camera.position, boxCenter)
-                  .multiply(new THREE.Vector3(1, 0, 1))
-                  .normalize();
+                  .multiply(new THREE.Vector3(1, 0, 1));
+
+              if (direction.lengthSq() === 0) {
+                  direction.set(0, 0, 1);
+              } else {
+                  direction.normalize();
+              }
 
               camera.position.copy(direction.multiplyScalar(distance).add(boxCenter));
               camera.near = boxSize / 100;
@@ -697,7 +706,7 @@
             directionalLight.castShadow = shadowEnabled;
             cameraSpotlight.castShadow = shadowEnabled;
 
-            updateView();
+            updateView(true);
 
             // Expose for debugging/testing
             window.camera = camera;
