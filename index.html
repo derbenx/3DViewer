@@ -405,7 +405,12 @@
                 } else {
                     // Room mode
                     controls.enabled = false;
-                    camera.position.set(0, standingHeight, 0);
+                    let yPos = standingHeight;
+                    if (modelGroup) {
+                        const box = new THREE.Box3().setFromObject(modelGroup);
+                        yPos = box.min.y + standingHeight;
+                    }
+                    camera.position.set(0, yPos, 0);
                     if (resetRotation) {
                         lat = 0;
                         lon = -90;
@@ -709,6 +714,7 @@
             updateView(true);
 
             // Expose for debugging/testing
+            window.THREE = THREE;
             window.camera = camera;
             window.scene = scene;
             window.controls = controls;
