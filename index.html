@@ -227,6 +227,8 @@
                 const session = renderer.xr.getSession();
                 console.log('XR session started. Mode:', session.environmentBlendMode);
 
+                controls.enabled = false;
+
                 if (session.environmentBlendMode === 'additive' || session.environmentBlendMode === 'alpha-blend') {
                     scene.background = null;
                 }
@@ -287,10 +289,6 @@
                 if (viewMode === 'environment') {
                     updateView(false);
                 }
-
-                // Reset internal XR camera offset to prevent "cannot get back in" issues
-                const xrCamera = renderer.xr.getCamera(activeCamera);
-                xrCamera.position.set(0, 0, 0);
 
                 // Reset camera rig position
                 cameraRig.position.set(0, 0, 0);
@@ -751,7 +749,15 @@
                     environmentCamera.lookAt(target);
                 }
 
-                renderer.render(scene, activeCamera);
+                try {
+                    renderer.render(scene, activeCamera);
+                } catch (e) {
+                    if (e.name === 'InvalidStateError') {
+                        console.warn('Caught InvalidStateError - session likely ended during render');
+                    } else {
+                        throw e;
+                    }
+                }
             }
 
             // Initial state from DOM
