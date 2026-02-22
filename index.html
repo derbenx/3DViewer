@@ -87,7 +87,7 @@
             <h4>View Mode</h4>
             <div id="view-mode-options">
                 <label><input type="radio" name="view-mode" value="model" checked> Model</label><br>
-                <label><input type="radio" name="view-mode" value="room"> Environment</label>
+                <label><input type="radio" name="view-mode" value="environment"> Environment</label>
             </div>
             <hr>
             <h4>Settings</h4>
@@ -141,7 +141,8 @@
             let directionalLight;
             let cameraSpotlight;
             let modelCamera;
-            let roomCamera;
+            let environmentCamera;
+            let cameraRig;
             let activeCamera;
             let controls;
             let renderer;
@@ -171,7 +172,7 @@
             document.getElementById('slider-height').addEventListener('input', (e) => {
                 standingHeight = parseFloat(e.target.value);
                 document.getElementById('height-val').textContent = standingHeight.toFixed(1);
-                if (viewMode === 'room') {
+                if (viewMode === 'environment') {
                     updateView(false);
                 }
             });
@@ -231,7 +232,7 @@
                 }
 
                 const model = scene.getObjectByName('user_model');
-                if (model) {
+                if (model && viewMode === 'model') {
                     // Store original scale and position
                     originalModelInfo = {
                         scale: model.scale.clone(),
@@ -273,17 +274,23 @@
                     originalModelInfo = null; // Clear it for the next session
 
                     // Re-frame the camera for the 2D view
-                    const box = new THREE.Box3().setFromObject(model);
-                    const boxSize = box.getSize(new THREE.Vector3()).length();
-                    const boxCenter = box.getCenter(new THREE.Vector3());
-                    frameArea(boxSize * 1.2, boxSize, boxCenter, modelCamera);
-                    controls.target.copy(boxCenter);
-                    controls.update();
+                    if (viewMode === 'model') {
+                        const box = new THREE.Box3().setFromObject(model);
+                        const boxSize = box.getSize(new THREE.Vector3()).length();
+                        const boxCenter = box.getCenter(new THREE.Vector3());
+                        frameArea(boxSize * 1.2, boxSize, boxCenter, modelCamera);
+                        controls.target.copy(boxCenter);
+                        controls.update();
+                    }
+                }
+
+                if (viewMode === 'environment') {
+                    updateView(false);
                 }
 
                 // Reset camera rig position
-                const cameraRig = renderer.xr.getCamera(activeCamera);
                 cameraRig.position.set(0, 0, 0);
+                cameraRig.rotation.set(0, 0, 0);
             });
 
             const fov = 45;
@@ -293,8 +300,9 @@
             modelCamera = new THREE.PerspectiveCamera(fov, aspect, near, far);
             modelCamera.position.set(0, 1, 5);
 
-            roomCamera = new THREE.PerspectiveCamera(fov, aspect, near, far);
-            roomCamera.position.set(0, standingHeight, 0);
+            environmentCamera = new THREE.PerspectiveCamera(fov, aspect, near, far);
+            environmentCamera.name = 'environmentCamera';
+            environmentCamera.position.set(0, standingHeight, 0);
 
             activeCamera = modelCamera;
 
@@ -315,7 +323,7 @@
             controls.update();
 
             canvas.addEventListener('pointermove', (e) => {
-                if (viewMode === 'room' && e.buttons === 1) {
+                if (viewMode === 'environment' && e.buttons === 1) {
                     lon -= e.movementX * 0.1;
                     lat += e.movementY * 0.1;
                     lat = Math.max(-85, Math.min(85, lat));
@@ -323,24 +331,27 @@
             });
 
             scene = new THREE.Scene();
-            scene.add(modelCamera);
-            scene.add(roomCamera);
+            cameraRig = new THREE.Group();
+            scene.add(cameraRig);
+
+            cameraRig.add(modelCamera);
+            cameraRig.add(environmentCamera);
 
             // VR Controllers Setup
             const controller1 = renderer.xr.getController(0);
-            scene.add(controller1);
+            cameraRig.add(controller1);
             const controller2 = renderer.xr.getController(1);
-            scene.add(controller2);
+            cameraRig.add(controller2);
 
             const controllerGrip1 = renderer.xr.getControllerGrip(0);
             const model1 = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0, -1)]), new THREE.LineBasicMaterial({color: 0xff0000, linewidth: 5}));
             controllerGrip1.add(model1);
-            scene.add(controllerGrip1);
+            cameraRig.add(controllerGrip1);
 
             const controllerGrip2 = renderer.xr.getControllerGrip(1);
             const model2 = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0, -1)]), new THREE.LineBasicMaterial({color: 0x0000ff, linewidth: 5}));
             controllerGrip2.add(model2);
-            scene.add(controllerGrip2);
+            cameraRig.add(controllerGrip2);
 
             let gripPressed = [false, false];
             let triggerPressed = [false, false];
@@ -410,10 +421,20 @@
                     }
                     controls.update();
                 } else {
-                    // Room mode
-                    activeCamera = roomCamera;
+                    // Environment mode
+                    activeCamera = environmentCamera;
                     controls.enabled = false;
-                    roomCamera.position.set(0, standingHeight, 0);
+
+                    environmentCamera.position.set(0, 0, 0);
+                    cameraRig.position.set(0, 0, 0);
+                    cameraRig.rotation.set(0, 0, 0);
+
+                    if (modelGroup) {
+                        modelGroup.position.set(0, 0, 0);
+                        modelGroup.scale.set(1, 1, 1);
+                        modelGroup.rotation.set(0, 0, 0);
+                    }
+
                     if (resetRotation) {
                         lat = 0;
                         lon = -90;
@@ -423,11 +444,11 @@
                     const phi = THREE.MathUtils.degToRad(90 - lat);
                     const theta = THREE.MathUtils.degToRad(lon);
                     const target = new THREE.Vector3(
-                        roomCamera.position.x + Math.sin(phi) * Math.cos(theta),
-                        roomCamera.position.y + Math.cos(phi),
-                        roomCamera.position.z + Math.sin(phi) * Math.sin(theta)
+                        environmentCamera.position.x + Math.sin(phi) * Math.cos(theta),
+                        environmentCamera.position.y + Math.cos(phi),
+                        environmentCamera.position.z + Math.sin(phi) * Math.sin(theta)
                     );
-                    roomCamera.lookAt(target);
+                    environmentCamera.lookAt(target);
                 }
 
                 // Parent lights to active camera
@@ -619,54 +640,76 @@
             const clock = new THREE.Clock();
 
             function handleControllerInput(timeDelta) {
-                if (renderer.xr.isPresenting) {
-                    for (let i = 0; i < 2; i++) {
-                        const controller = renderer.xr.getController(i);
+                if (!renderer.xr.isPresenting) return;
 
-                        if (controller && controller.gamepad && controller.gamepad.axes.length >= 4) {
-                            const model = scene.getObjectByName('user_model');
-                            if (model) {
-                                const x = controller.gamepad.axes[2];
-                                const z = controller.gamepad.axes[3];
-                                const deadzone = 0.2;
+                for (let i = 0; i < 2; i++) {
+                    const controller = renderer.xr.getController(i);
+                    if (!controller || !controller.gamepad || controller.gamepad.axes.length < 4) continue;
 
-                                if (triggerPressed[i]) {
-                                    // Trigger: Rotate Y and Move Y
-                                    const rotationSpeed = 1.5; // radians per second
-                                    const verticalSpeed = 2; // meters per second
-                                    if (Math.abs(x) > deadzone) {
-                                        model.rotation.y -= x * rotationSpeed * timeDelta;
-                                    }
-                                    if (Math.abs(z) > deadzone) {
-                                        model.position.y -= z * verticalSpeed * timeDelta;
-                                    }
-                                } else if (gripPressed[i]) {
-                                    // Grip: Scale
-                                    const scaleSpeed = 0.5;
-                                    if (Math.abs(z) > deadzone) {
-                                        const scaleFactor = 1.0 - z * scaleSpeed * timeDelta;
-                                        model.scale.multiplyScalar(scaleFactor);
-                                    }
-                                } else {
-                                    // No button: Translate X/Z on the floor
-                                    const moveSpeed = 2; // meters per second
-                                    if (Math.abs(x) > deadzone) {
-                                        model.position.x += x * moveSpeed * timeDelta;
-                                    }
-                                    if (Math.abs(z) > deadzone) {
-                                        model.position.z += z * moveSpeed * timeDelta;
-                                    }
-                                }
-                            }
+                    const x = controller.gamepad.axes[2];
+                    const z = controller.gamepad.axes[3];
+                    const deadzone = 0.2;
 
-                            // Exit VR button is independent of other controls
-                            if (controller.gamepad.buttons.length > 4 && controller.gamepad.buttons[4].pressed) {
-                                const session = renderer.xr.getSession();
-                                if (session) {
-                                    session.end();
-                                }
+                    if (viewMode === 'environment') {
+                        // Environment Mode: Locomotion
+                        if (Math.abs(x) > deadzone || Math.abs(z) > deadzone) {
+                            const isLeft = (controller.gamepad.hand === 'left') || (i === 0 && !controller.gamepad.hand);
+                            const isRight = (controller.gamepad.hand === 'right') || (i === 1 && !controller.gamepad.hand);
+
+                            if (isLeft) {
+                                // Walk: Move rig relative to camera orientation on XZ plane
+                                const moveSpeed = 2.0;
+                                const worldQuaternion = new THREE.Quaternion();
+                                activeCamera.getWorldQuaternion(worldQuaternion);
+
+                                const forward = new THREE.Vector3(0, 0, -1);
+                                forward.applyQuaternion(worldQuaternion);
+                                forward.y = 0;
+                                forward.normalize();
+
+                                const right = new THREE.Vector3(1, 0, 0);
+                                right.applyQuaternion(worldQuaternion);
+                                right.y = 0;
+                                right.normalize();
+
+                                cameraRig.position.addScaledVector(forward, -z * moveSpeed * timeDelta);
+                                cameraRig.position.addScaledVector(right, x * moveSpeed * timeDelta);
+                            } else if (isRight) {
+                                // Rotate view (yaw)
+                                const rotateSpeed = 1.5;
+                                cameraRig.rotation.y -= x * rotateSpeed * timeDelta;
                             }
                         }
+                    } else {
+                        // Model Mode: Model Interaction
+                        const model = scene.getObjectByName('user_model');
+                        if (model && (Math.abs(x) > deadzone || Math.abs(z) > deadzone)) {
+                            if (triggerPressed[i]) {
+                                // Trigger: Rotate Y and Move Y
+                                const rotationSpeed = 1.5;
+                                const verticalSpeed = 2.0;
+                                if (Math.abs(x) > deadzone) model.rotation.y -= x * rotationSpeed * timeDelta;
+                                if (Math.abs(z) > deadzone) model.position.y -= z * verticalSpeed * timeDelta;
+                            } else if (gripPressed[i]) {
+                                // Grip: Scale
+                                const scaleSpeed = 0.5;
+                                if (Math.abs(z) > deadzone) {
+                                    const scaleFactor = 1.0 - z * scaleSpeed * timeDelta;
+                                    model.scale.multiplyScalar(scaleFactor);
+                                }
+                            } else {
+                                // No button: Translate X/Z on the floor
+                                const moveSpeed = 2.0;
+                                if (Math.abs(x) > deadzone) model.position.x += x * moveSpeed * timeDelta;
+                                if (Math.abs(z) > deadzone) model.position.z += z * moveSpeed * timeDelta;
+                            }
+                        }
+                    }
+
+                    // Exit VR button (independent)
+                    if (controller.gamepad.buttons.length > 4 && controller.gamepad.buttons[4].pressed) {
+                        const session = renderer.xr.getSession();
+                        if (session) session.end();
                     }
                 }
             }
@@ -683,19 +726,19 @@
                     const canvas = renderer.domElement;
                     modelCamera.aspect = canvas.clientWidth / canvas.clientHeight;
                     modelCamera.updateProjectionMatrix();
-                    roomCamera.aspect = canvas.clientWidth / canvas.clientHeight;
-                    roomCamera.updateProjectionMatrix();
+                    environmentCamera.aspect = canvas.clientWidth / canvas.clientHeight;
+                    environmentCamera.updateProjectionMatrix();
                 }
 
-                if (viewMode === 'room') {
+                if (viewMode === 'environment') {
                     const phi = THREE.MathUtils.degToRad(90 - lat);
                     const theta = THREE.MathUtils.degToRad(lon);
                     const target = new THREE.Vector3(
-                        roomCamera.position.x + Math.sin(phi) * Math.cos(theta),
-                        roomCamera.position.y + Math.cos(phi),
-                        roomCamera.position.z + Math.sin(phi) * Math.sin(theta)
+                        environmentCamera.position.x + Math.sin(phi) * Math.cos(theta),
+                        environmentCamera.position.y + Math.cos(phi),
+                        environmentCamera.position.z + Math.sin(phi) * Math.sin(theta)
                     );
-                    roomCamera.lookAt(target);
+                    environmentCamera.lookAt(target);
                 }
 
                 renderer.render(scene, activeCamera);
@@ -722,7 +765,8 @@
             // Expose for debugging/testing
             window.THREE = THREE;
             window.modelCamera = modelCamera;
-            window.roomCamera = roomCamera;
+            window.environmentCamera = environmentCamera;
+            window.cameraRig = cameraRig;
             window.activeCamera = () => activeCamera;
             window.scene = scene;
             window.controls = controls;
