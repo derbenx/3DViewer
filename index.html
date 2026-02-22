@@ -78,7 +78,7 @@
     </style>
 </head>
 <body>
-    <div id="side-panel">
+    <div id="side-panel" class="visible">
         <button id="panel-toggle-button">☰</button>
         <div id="panel-content">
             <input type="file" id="file-input" accept=".gltf,.glb,.fbx,.obj,.stl" />
@@ -288,6 +288,10 @@
                     updateView(false);
                 }
 
+                // Reset internal XR camera offset to prevent "cannot get back in" issues
+                const xrCamera = renderer.xr.getCamera(activeCamera);
+                xrCamera.position.set(0, 0, 0);
+
                 // Reset camera rig position
                 cameraRig.position.set(0, 0, 0);
                 cameraRig.rotation.set(0, 0, 0);
@@ -378,9 +382,12 @@
             {
                 const skyColor = 0xB1E1FF;  // light blue
                 const groundColor = 0xB97A20;  // brownish orange
-                const intensity = 1;
+                const intensity = 2;
                 const light = new THREE.HemisphereLight(skyColor, groundColor, intensity);
                 scene.add(light);
+
+                const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+                scene.add(ambientLight);
             }
 
             {
@@ -665,15 +672,18 @@
                                 const forward = new THREE.Vector3(0, 0, -1);
                                 forward.applyQuaternion(worldQuaternion);
                                 forward.y = 0;
-                                forward.normalize();
+                                if (forward.lengthSq() > 0) {
+                                    forward.normalize();
+                                    cameraRig.position.addScaledVector(forward, -z * moveSpeed * timeDelta);
+                                }
 
                                 const right = new THREE.Vector3(1, 0, 0);
                                 right.applyQuaternion(worldQuaternion);
                                 right.y = 0;
-                                right.normalize();
-
-                                cameraRig.position.addScaledVector(forward, -z * moveSpeed * timeDelta);
-                                cameraRig.position.addScaledVector(right, x * moveSpeed * timeDelta);
+                                if (right.lengthSq() > 0) {
+                                    right.normalize();
+                                    cameraRig.position.addScaledVector(right, x * moveSpeed * timeDelta);
+                                }
                             } else if (isRight) {
                                 // Rotate view (yaw)
                                 const rotateSpeed = 1.5;
@@ -730,7 +740,7 @@
                     environmentCamera.updateProjectionMatrix();
                 }
 
-                if (viewMode === 'environment') {
+                if (viewMode === 'environment' && !renderer.xr.isPresenting) {
                     const phi = THREE.MathUtils.degToRad(90 - lat);
                     const theta = THREE.MathUtils.degToRad(lon);
                     const target = new THREE.Vector3(
