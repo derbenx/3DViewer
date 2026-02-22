@@ -215,15 +215,81 @@
             const canvas = document.querySelector('#c');
             renderer = new THREE.WebGLRenderer({canvas, antialias: true, alpha: true});
             renderer.xr.enabled = true;
+            renderer.xr.setReferenceSpaceType('local');
             renderer.shadowMap.enabled = false;
             renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
             const webxrButtonsContainer = document.getElementById('webxr-buttons');
-            webxrButtonsContainer.appendChild(VRButton.createButton(renderer));
-            webxrButtonsContainer.appendChild(ARButton.createButton(renderer));
+
+            function updateEnterExitButtons() {
+                const session = renderer.xr.getSession();
+                const vrButton = document.getElementById('VRButton');
+                const arButton = document.getElementById('ARButton');
+
+                if (!session) {
+                    if (vrButton) vrButton.textContent = 'Enter VR';
+                    if (arButton) arButton.textContent = 'Enter AR';
+                } else {
+                    if (vrButton) vrButton.textContent = 'Exit VR/AR';
+                    if (arButton) arButton.textContent = 'Exit VR/AR';
+                }
+            }
+            renderer.xr.addEventListener('sessionstart', updateEnterExitButtons);
+            renderer.xr.addEventListener('sessionend', updateEnterExitButtons);
+
+            // AR Button
+            if ('xr' in navigator) {
+                navigator.xr.isSessionSupported('immersive-ar').then((supported) => {
+                    if (supported) {
+                        const arButton = document.createElement('button');
+                        arButton.id = 'ARButton';
+                        arButton.addEventListener('click', () => {
+                            const currentSession = renderer.xr.getSession();
+                            if (currentSession) {
+                                currentSession.end();
+                            } else {
+                                const sessionInit = {
+                                    optionalFeatures: ['hand-tracking', 'dom-overlay', 'hit-test'],
+                                    domOverlay: { root: document.body }
+                                };
+                                navigator.xr.requestSession('immersive-ar', sessionInit).then((session) => {
+                                    renderer.xr.setSession(session);
+                                });
+                            }
+                        });
+                        webxrButtonsContainer.appendChild(arButton);
+                        updateEnterExitButtons();
+                    }
+                });
+            }
+
+            // VR Button
+            if ('xr' in navigator) {
+                navigator.xr.isSessionSupported('immersive-vr').then((supported) => {
+                    if (supported) {
+                        const vrButton = document.createElement('button');
+                        vrButton.id = 'VRButton';
+                        vrButton.addEventListener('click', () => {
+                            const currentSession = renderer.xr.getSession();
+                            if (currentSession) {
+                                currentSession.end();
+                            } else {
+                                const sessionInit = {
+                                    optionalFeatures: ['local-floor', 'bounded-floor', 'hand-tracking']
+                                };
+                                navigator.xr.requestSession('immersive-vr', sessionInit).then((session) => {
+                                    renderer.xr.setSession(session);
+                                });
+                            }
+                        });
+                        webxrButtonsContainer.appendChild(vrButton);
+                        updateEnterExitButtons();
+                    }
+                });
+            }
 
             let originalModelInfo = null;
-            renderer.xr.addEventListener('sessionstart', () => {
+            renderer.xr.addEventListener('sessionstart', async () => {
                 const session = renderer.xr.getSession();
                 console.log('XR session started. Mode:', session.environmentBlendMode);
 
@@ -302,6 +368,10 @@
                 modelCamera.rotation.set(0, 0, 0);
                 environmentCamera.position.set(0, 0, 0);
                 environmentCamera.rotation.set(0, 0, 0);
+
+                // Reset internal XR camera offset
+                const xrCamera = renderer.xr.getCamera(activeCamera);
+                xrCamera.position.set(0, 0, 0);
             });
 
             const fov = 45;
@@ -731,7 +801,7 @@
                 }
             }
 
-            function render() {
+            function render(time, frame) {
                 const delta = clock.getDelta();
                 handleControllerInput(delta);
 
@@ -759,14 +829,7 @@
                 }
 
                 try {
-                    if (renderer.xr.isPresenting) {
-                        const session = renderer.xr.getSession();
-                        if (session) {
-                            renderer.render(scene, activeCamera);
-                        }
-                    } else {
-                        renderer.render(scene, activeCamera);
-                    }
+                    renderer.render(scene, activeCamera);
                 } catch (e) {
                     if (e.name === 'InvalidStateError') {
                         console.warn('Caught InvalidStateError - session likely ended during render');
