@@ -223,7 +223,7 @@
             webxrButtonsContainer.appendChild(ARButton.createButton(renderer));
 
             let originalModelInfo = null;
-            renderer.xr.addEventListener('sessionstart', async () => {
+            renderer.xr.addEventListener('sessionstart', () => {
                 const session = renderer.xr.getSession();
                 console.log('XR session started. Mode:', session.environmentBlendMode);
 
@@ -269,6 +269,11 @@
             renderer.xr.addEventListener('sessionend', () => {
                 console.log('XR session ended.');
                 scene.background = new THREE.Color('black');
+
+                if (viewMode === 'model') {
+                    controls.enabled = true;
+                }
+
                 const model = scene.getObjectByName('user_model');
                 if (model && originalModelInfo) {
                     model.scale.copy(originalModelInfo.scale);
@@ -290,9 +295,13 @@
                     updateView(false);
                 }
 
-                // Reset camera rig position
+                // Reset camera rig and cameras to clear VR offsets
                 cameraRig.position.set(0, 0, 0);
                 cameraRig.rotation.set(0, 0, 0);
+                modelCamera.position.set(0, 1, 5);
+                modelCamera.rotation.set(0, 0, 0);
+                environmentCamera.position.set(0, 0, 0);
+                environmentCamera.rotation.set(0, 0, 0);
             });
 
             const fov = 45;
@@ -384,7 +393,7 @@
                 const light = new THREE.HemisphereLight(skyColor, groundColor, intensity);
                 scene.add(light);
 
-                const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+                const ambientLight = new THREE.AmbientLight(0xffffff, 1.0);
                 scene.add(ambientLight);
             }
 
@@ -750,7 +759,14 @@
                 }
 
                 try {
-                    renderer.render(scene, activeCamera);
+                    if (renderer.xr.isPresenting) {
+                        const session = renderer.xr.getSession();
+                        if (session) {
+                            renderer.render(scene, activeCamera);
+                        }
+                    } else {
+                        renderer.render(scene, activeCamera);
+                    }
                 } catch (e) {
                     if (e.name === 'InvalidStateError') {
                         console.warn('Caught InvalidStateError - session likely ended during render');
