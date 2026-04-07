@@ -1,6 +1,8 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+<link rel="manifest" href="manifest.json" />
+    <meta name="theme-color" content="#000000">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>GLTF Viewer</title>
@@ -44,7 +46,9 @@
         }
 
         #panel-content {
-            /* No styles needed here as padding is on parent now */
+            display: flex;
+            flex-direction: column;
+            height: calc(100% - 30px); /* Reserve space for version info */
         }
 
         #file-input {
@@ -54,7 +58,7 @@
 
         #webxr-buttons {
             display: flex;
-            flex-direction: column;
+            flex-direction: row;
             gap: 10px; /* Add some space between the buttons */
         }
 
@@ -72,20 +76,233 @@
             font-size: 14px;
         }
 
-        #webxr-buttons button:hover {
+        #webxr-buttons button:hover, #panel-content button:hover {
             background-color: #555;
+            box-shadow: 0 0 8px 2px rgba(80, 200, 80, 0.5);
+        }
+
+        #sample-models-list {
+            max-height: 200px;
+            overflow-y: auto;
+            background: rgba(0,0,0,0.2);
+            border-radius: 5px;
+            padding: 10px;
+            margin-top: 5px;
+        }
+
+        #sample-models-list button {
+            background-color: #555;
+            border: 1px solid #666;
+            color: white;
+            padding: 8px 12px;
+            margin-bottom: 5px;
+            width: 100%;
+            text-align: left;
+            cursor: pointer;
+            display: block;
+            box-sizing: border-box;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .collapsible-header {
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            user-select: none; /* Prevent text selection on click */
+        }
+
+        .collapsible-header::after {
+            content: '−'; /* Minus sign for expanded */
+            font-size: 18px;
+            font-weight: bold;
+            transition: transform 0.2s ease;
+        }
+
+        .collapsible-container.collapsed .collapsible-header::after {
+            content: '+'; /* Plus sign for collapsed */
+        }
+
+        .collapsible-content {
+            padding-left: 10px;
+            border-left: 2px solid #555;
+            margin-left: 5px;
+            margin-top: 10px;
+        }
+
+        .collapsible-container.collapsed .collapsible-content {
+            display: none;
+        }
+
+        #main-controls-container {
+            flex: 1;
+            overflow-y: auto;
+            min-height: 0;
+            padding-right: 15px; /* Prevent content from hiding under scrollbar */
+        }
+
+        #side-panel * {
+            box-sizing: border-box;
+        }
+
+        #main-controls-container hr {
+            width: 100%;
+            border: none;
+            border-top: 1px solid #555;
+            margin: 15px 0;
+        }
+
+        .custom-select-container {
+            position: relative;
+            user-select: none;
+        }
+
+        .custom-select-value {
+            background-color: #444;
+            color: white;
+            border: 1px solid #555;
+            padding: 5px 10px;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .custom-select-value::after {
+            content: '▼';
+            font-size: 10px;
+        }
+
+        .custom-select-options {
+            display: none;
+            position: absolute;
+            background-color: #333;
+            border: 1px solid #555;
+            width: 100%;
+            z-index: 10;
+            max-height: 150px;
+            overflow-y: auto;
+        }
+
+        .custom-select-options.visible {
+            display: block;
+        }
+
+        .custom-select-option {
+            padding: 8px 10px;
+            cursor: pointer;
+        }
+
+        .custom-select-option:hover {
+            background-color: #555;
+        }
+
+        .custom-select-option.selected {
+            background-color: #666;
+        }
+
+        #conversion-message {
+            display: none;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            z-index: 100;
+            font-size: 18px;
         }
     </style>
 </head>
 <body>
-    <div id="side-panel">
+    <div id="conversion-message">Converting model, please wait...</div>
+    <div id="side-panel" class="visible">
         <button id="panel-toggle-button">☰</button>
         <div id="panel-content">
-            <input type="file" id="file-input" accept=".gltf,.glb,.fbx,.obj,.stl" />
+            <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+                <button id="browse-button" style="flex-grow: 1; padding: 10px; background-color: #444; color: white; border: 1px solid #555; cursor: pointer; font-size: 14px;">360 or Model</button>
+                <button id="browse-image-button" style="flex-grow: 1; padding: 10px; background-color: #444; color: white; border: 1px solid #555; cursor: pointer; font-size: 14px;">Flat Image</button>
+                <button id="clear-button" style="padding: 10px; background-color: #666; color: white; border: 1px solid #777; cursor: pointer; font-size: 14px;">Clear</button>
+            </div>
             <div id="webxr-buttons"></div>
-            <hr>
-            <h4>Sample Models</h4>
-            <div id="sample-models-list"></div>
+            <div id="main-controls-container">
+                <hr>
+                <div class="collapsible-container">
+                    <h4 class="collapsible-header">Settings</h4>
+                    <div class="collapsible-content">
+                        <div>
+                            <input type="checkbox" id="antialias-toggle">
+                            <label for="antialias-toggle" style="font-size: 14px;">Enable Antialiasing</label>
+                        </div>
+                        <div>
+                            <input type="checkbox" id="three-point-lighting-toggle">
+                            <label for="three-point-lighting-toggle" style="font-size: 14px;">Enable 3-Point Lighting</label>
+                        </div>
+                        <div>
+                            <input type="checkbox" id="two-sided-toggle">
+                            <label for="two-sided-toggle" style="font-size: 14px;">Render Two-Sided</label>
+                        </div>
+                        <div id="three-point-light-controls" style="display: none;">
+                             <div style="display: flex; align-items: center; gap: 10px;">
+                                <label for="three-point-light-slider" style="font-size: 14px;">Light</label>
+                                <input type="range" id="three-point-light-slider" min="50" max="500" step="10" value="100" style="flex-grow: 1;">
+                            </div>
+                        </div>
+                        <div id="single-light-controls">
+                            <div style="display: flex; align-items: center; gap: 10px;">
+                                <label for="light-slider" style="font-size: 14px;">Light</label>
+                                <input type="range" id="light-slider" min="50" max="500" step="10" value="100" style="flex-grow: 1;">
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 10px; margin-top: 5px;">
+                                <label style="font-size: 14px;">Type</label>
+                                <div id="light-type-select" class="custom-select-container" style="flex-grow: 1;">
+                                    <div class="custom-select-value"></div>
+                                    <div class="custom-select-options">
+                                        <div class="custom-select-option" data-value="Directional">Directional</div>
+                                        <div class="custom-select-option" data-value="Point">Point</div>
+                                        <div class="custom-select-option" data-value="Spot">Spot</div>
+                                        <div class="custom-select-option" data-value="Ambient">Ambient</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div>
+                            <label style="font-size: 14px;">VR Background</label>
+                            <div id="rgb-sliders" style="display: flex; flex-direction: column; gap: 5px; margin-top: 5px;">
+                                <div style="display: flex; align-items: center; gap: 5px;"><label for="r-slider" style="width: 20px;">R:</label><input type="range" id="r-slider" min="0" max="255" step="1" style="flex-grow: 1;"></div>
+                                <div style="display: flex; align-items: center; gap: 5px;"><label for="g-slider" style="width: 20px;">G:</label><input type="range" id="g-slider" min="0" max="255" step="1" style="flex-grow: 1;"></div>
+                                <div style="display: flex; align-items: center; gap: 5px;"><label for="b-slider" style="width: 20px;">B:</label><input type="range" id="b-slider" min="0" max="255" step="1" style="flex-grow: 1;"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <hr>
+                <div class="collapsible-container collapsed">
+                    <h4 class="collapsible-header">Help</h4>
+                    <div class="collapsible-content">
+                        <ul style="padding-left: 20px; font-size: 14px; margin-top: 0;">
+                            <li><b>Trigger + Grip:</b> Scale Model</li>
+                            <li><b>Trigger:</b> Move Model Up/Down</li>
+                            <li><b>Grip:</b> Rotate Model</li>
+                            <li><b>Thumbstick:</b> Move Model on Floor</li>
+                            <li><b>A/X Button:</b> Exit VR/AR</li>
+                        </ul>
+                    </div>
+                </div>
+                <hr>
+                <div class="collapsible-container">
+                    <h4 id="sample-models-header" class="collapsible-header">Sample Models</h4>
+                    <div class="collapsible-content">
+                        <div id="sample-models-list"></div>
+                    </div>
+                </div>
+                <hr>
+            </div>
+            <div id="version-info" style="font-size: 12px; color: #888; position: absolute; bottom: 10px;"></div>
         </div>
     </div>
     <canvas id="c"></canvas>
@@ -93,7 +310,10 @@
         {
             "imports": {
                 "three": "./js/three/build/three.module.js",
-                "three/addons/": "./js/three/examples/jsm/"
+                "three/addons/": "./js/three/examples/jsm/",
+                "@gltf-transform/core": "https://esm.sh/@gltf-transform/core",
+                "@gltf-transform/extensions": "https://esm.sh/@gltf-transform/extensions",
+                "@gltf-transform/functions": "https://esm.sh/@gltf-transform/functions"
             }
         }
     </script>
@@ -101,13 +321,186 @@
         import * as THREE from 'three';
         import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
         import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-        import { VRButton } from 'three/addons/webxr/VRButton.js';
-        import { ARButton } from 'three/addons/webxr/ARButton.js';
+        import { XRControllerModelFactory } from 'three/addons/webxr/XRControllerModelFactory.js';
+        import { Hand } from './js/hands.js';
         import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
         import { OBJLoader } from 'three/addons/loaders/OBJLoader.js';
         import { STLLoader } from 'three/addons/loaders/STLLoader.js';
+        import { ColladaLoader } from 'three/addons/loaders/ColladaLoader.js';
+        import { VRMLLoader } from 'three/addons/loaders/VRMLLoader.js';
+        import { WebIO } from '@gltf-transform/core';
+        import { KHRONOS_EXTENSIONS } from '@gltf-transform/extensions';
+        import { metalRough } from '@gltf-transform/functions';
+
+        let leftHand, rightHand;
+        function modelNeedsConversion(buffer) {
+            const textDecoder = new TextDecoder();
+            let json;
+            try {
+                // Check for binary GLB header
+                if (textDecoder.decode(new Uint8Array(buffer, 0, 4)) === 'glTF') {
+                    const dataView = new DataView(buffer);
+                    const jsonChunkLength = dataView.getUint32(12, true);
+                    const jsonChunk = new Uint8Array(buffer, 20, jsonChunkLength);
+                    json = JSON.parse(textDecoder.decode(jsonChunk));
+                } else {
+                    json = JSON.parse(textDecoder.decode(buffer));
+                }
+                return json.extensionsUsed && json.extensionsUsed.includes('KHR_materials_pbrSpecularGlossiness');
+            } catch (e) {
+                console.error('Error checking for glTF extension:', e);
+                return false;
+            }
+        }
 
         function main() {
+            let mixer;
+            // --- Settings ---
+            const settings = {
+                antialias: JSON.parse(localStorage.getItem('settings.antialias')) ?? true,
+                vrBackgroundColor: localStorage.getItem('settings.vrBackgroundColor') ?? '#444444',
+                lightIntensity: JSON.parse(localStorage.getItem('settings.lightIntensity')) ?? 1.0,
+                lightType: localStorage.getItem('settings.lightType') ?? 'Directional',
+                threePointLighting: JSON.parse(localStorage.getItem('settings.threePointLighting')) ?? false,
+                threePointLightIntensity: JSON.parse(localStorage.getItem('settings.threePointLightIntensity')) ?? 1.0,
+                twoSided: JSON.parse(localStorage.getItem('settings.twoSided')) ?? false
+            };
+
+            function updateTwoSided() {
+                const model = scene.getObjectByName('user_model');
+                if (model) {
+                    model.traverse((child) => {
+                        if (child.isMesh && child.material) {
+                            child.material.side = settings.twoSided ? THREE.DoubleSide : THREE.FrontSide;
+                        }
+                    });
+                }
+            }
+
+            const twoSidedToggle = document.getElementById('two-sided-toggle');
+            twoSidedToggle.checked = settings.twoSided;
+            twoSidedToggle.addEventListener('change', (event) => {
+                settings.twoSided = event.target.checked;
+                localStorage.setItem('settings.twoSided', settings.twoSided);
+                updateTwoSided();
+            });
+            const antialiasToggle = document.getElementById('antialias-toggle');
+            antialiasToggle.checked = settings.antialias;
+            antialiasToggle.addEventListener('change', (event) => {
+                localStorage.setItem('settings.antialias', event.target.checked);
+                location.reload();
+            });
+
+
+            const rSlider = document.getElementById('r-slider');
+            const gSlider = document.getElementById('g-slider');
+            const bSlider = document.getElementById('b-slider');
+
+            const initialColor = new THREE.Color(settings.vrBackgroundColor);
+            rSlider.value = Math.round(initialColor.r * 255);
+            gSlider.value = Math.round(initialColor.g * 255);
+            bSlider.value = Math.round(initialColor.b * 255);
+
+            function updateColorFromSliders() {
+                const r = parseInt(rSlider.value);
+                const g = parseInt(gSlider.value);
+                const b = parseInt(bSlider.value);
+                const color = new THREE.Color(`rgb(${r}, ${g}, ${b})`);
+                localStorage.setItem('settings.vrBackgroundColor', color.getStyle());
+                currentBackground = color;
+                scene.background = currentBackground;
+            }
+
+            rSlider.addEventListener('input', updateColorFromSliders);
+            gSlider.addEventListener('input', updateColorFromSliders);
+            bSlider.addEventListener('input', updateColorFromSliders);
+
+            const lightSlider = document.getElementById('light-slider');
+            lightSlider.value = settings.lightIntensity * 100;
+            lightSlider.addEventListener('input', (event) => {
+                const newIntensity = parseFloat(event.target.value) / 100;
+                settings.lightIntensity = newIntensity;
+                localStorage.setItem('settings.lightIntensity', newIntensity);
+                updateLightSource();
+            });
+
+            const threePointLightSlider = document.getElementById('three-point-light-slider');
+            threePointLightSlider.value = settings.threePointLightIntensity * 100;
+            threePointLightSlider.addEventListener('input', (event) => {
+                const newIntensity = parseFloat(event.target.value) / 100;
+                settings.threePointLightIntensity = newIntensity;
+                localStorage.setItem('settings.threePointLightIntensity', newIntensity);
+                updateLightSource();
+            });
+
+            const threePointToggle = document.getElementById('three-point-lighting-toggle');
+            threePointToggle.checked = settings.threePointLighting;
+            threePointToggle.addEventListener('change', (event) => {
+                settings.threePointLighting = event.target.checked;
+                localStorage.setItem('settings.threePointLighting', event.target.checked);
+                toggleLightControls();
+                updateLightSource();
+            });
+
+            function toggleLightControls() {
+                const singleLightControls = document.getElementById('single-light-controls');
+                const threePointLightControls = document.getElementById('three-point-light-controls');
+                if (settings.threePointLighting) {
+                    singleLightControls.style.display = 'none';
+                    threePointLightControls.style.display = 'block';
+                } else {
+                    singleLightControls.style.display = 'block';
+                    threePointLightControls.style.display = 'none';
+                }
+            }
+            toggleLightControls(); // Set initial state
+
+            // --- Custom Select Dropdown Logic ---
+            const lightTypeSelect = document.getElementById('light-type-select');
+            const lightTypeValue = lightTypeSelect.querySelector('.custom-select-value');
+            const lightTypeOptions = lightTypeSelect.querySelector('.custom-select-options');
+
+            function updateSelectVisuals(selectedValue) {
+                lightTypeValue.textContent = selectedValue;
+                lightTypeOptions.querySelectorAll('.custom-select-option').forEach(opt => {
+                    opt.classList.toggle('selected', opt.dataset.value === selectedValue);
+                });
+            }
+
+            updateSelectVisuals(settings.lightType);
+
+            lightTypeValue.addEventListener('click', (e) => {
+                e.stopPropagation();
+                lightTypeOptions.classList.toggle('visible');
+            });
+
+            lightTypeOptions.querySelectorAll('.custom-select-option').forEach(option => {
+                option.addEventListener('click', () => {
+                    const newType = option.dataset.value;
+                    settings.lightType = newType;
+                    localStorage.setItem('settings.lightType', newType);
+
+                    updateSelectVisuals(newType);
+                    lightTypeOptions.classList.remove('visible');
+                    updateLightSource();
+                });
+            });
+
+            // Close dropdown when clicking outside
+            window.addEventListener('click', () => {
+                if (lightTypeOptions.classList.contains('visible')) {
+                    lightTypeOptions.classList.remove('visible');
+                }
+            });
+
+            const clearButton = document.getElementById('clear-button');
+            clearButton.addEventListener('click', () => {
+                location.reload();
+            });
+            // --- End Settings ---
+
+            let currentBackground = new THREE.Color(settings.vrBackgroundColor);
+
             const panel = document.getElementById('side-panel');
             const toggleButton = document.getElementById('panel-toggle-button');
 
@@ -116,12 +509,83 @@
             });
 
             const canvas = document.querySelector('#c');
-            const renderer = new THREE.WebGLRenderer({canvas, antialias: true, alpha: true});
+            const renderer = new THREE.WebGLRenderer({canvas, antialias: settings.antialias, alpha: true});
+            renderer.outputColorSpace = THREE.SRGBColorSpace;
             renderer.xr.enabled = true;
 
+            // Set a reference space type that is compatible with most AR devices.
+            renderer.xr.setReferenceSpaceType('local');
+
             const webxrButtonsContainer = document.getElementById('webxr-buttons');
-            webxrButtonsContainer.appendChild(VRButton.createButton(renderer));
-            webxrButtonsContainer.appendChild(ARButton.createButton(renderer));
+
+            function updateEnterExitButtons() {
+                const session = renderer.xr.getSession();
+                const vrButton = document.getElementById('VRButton');
+                const arButton = document.getElementById('ARButton');
+
+                if (!session) {
+                    // No session, both should say "Enter"
+                    if (vrButton) vrButton.textContent = 'Enter VR';
+                    if (arButton) arButton.textContent = 'Enter AR';
+                } else {
+                    // In a session, both buttons should exit and have the same text.
+                    if (vrButton) vrButton.textContent = 'Exit VR/AR';
+                    if (arButton) arButton.textContent = 'Exit VR/AR';
+                }
+            }
+            renderer.xr.addEventListener('sessionstart', updateEnterExitButtons);
+            renderer.xr.addEventListener('sessionend', updateEnterExitButtons);
+
+            // AR Button
+            if ('xr' in navigator) {
+                navigator.xr.isSessionSupported('immersive-ar').then((supported) => {
+                    if (supported) {
+                        const arButton = document.createElement('button');
+                        arButton.id = 'ARButton';
+                        arButton.addEventListener('click', () => {
+                            const currentSession = renderer.xr.getSession();
+                            if (currentSession) {
+                                currentSession.end();
+                            } else {
+                                const sessionInit = {
+                                    optionalFeatures: ['hand-tracking', 'dom-overlay', 'hit-test'],
+                                    domOverlay: { root: document.body }
+                                };
+                                navigator.xr.requestSession('immersive-ar', sessionInit).then((session) => {
+                                    renderer.xr.setSession(session);
+                                });
+                            }
+                        });
+                        webxrButtonsContainer.appendChild(arButton);
+                        updateEnterExitButtons(); // Set initial text
+                    }
+                });
+            }
+
+            // VR Button
+            if ('xr' in navigator) {
+                navigator.xr.isSessionSupported('immersive-vr').then((supported) => {
+                    if (supported) {
+                        const vrButton = document.createElement('button');
+                        vrButton.id = 'VRButton';
+                        vrButton.addEventListener('click', () => {
+                            const currentSession = renderer.xr.getSession();
+                            if (currentSession) {
+                                currentSession.end();
+                            } else {
+                                const sessionInit = {
+                                    optionalFeatures: ['local-floor', 'bounded-floor', 'hand-tracking']
+                                };
+                                navigator.xr.requestSession('immersive-vr', sessionInit).then((session) => {
+                                    renderer.xr.setSession(session);
+                                });
+                            }
+                        });
+                        webxrButtonsContainer.appendChild(vrButton);
+                        updateEnterExitButtons(); // Set initial text
+                    }
+                });
+            }
 
             let originalModelInfo = null;
             renderer.xr.addEventListener('sessionstart', async () => {
@@ -130,6 +594,8 @@
 
                 if (session.environmentBlendMode === 'additive' || session.environmentBlendMode === 'alpha-blend') {
                     scene.background = null;
+                } else {
+                    scene.background = currentBackground;
                 }
 
                 const model = scene.getObjectByName('user_model');
@@ -146,8 +612,8 @@
                     box.getSize(size);
                     const maxDim = Math.max(size.x, size.y, size.z);
 
-                    // Avoid division by zero if model has no size
-                    if (maxDim > 0) {
+                    // Avoid division by zero or tiny numbers if model has no size
+                    if (maxDim > 0.001) {
                         // Target size for VR (e.g., 1.5 meters on its longest side)
                         const targetSize = 1.5;
                         const scaleFactor = targetSize / maxDim;
@@ -167,7 +633,7 @@
 
             renderer.xr.addEventListener('sessionend', () => {
                 console.log('XR session ended.');
-                scene.background = new THREE.Color('black');
+                scene.background = currentBackground;
                 const model = scene.getObjectByName('user_model');
                 if (model && originalModelInfo) {
                     model.scale.copy(originalModelInfo.scale);
@@ -201,74 +667,353 @@
 
             const scene = new THREE.Scene();
 
-            // VR Controllers Setup
+            // --- VR Controllers Setup ---
+            const controllerModelFactory = new XRControllerModelFactory();
+
+            // Controller 1
             const controller1 = renderer.xr.getController(0);
             scene.add(controller1);
+
+            const controllerGrip1 = renderer.xr.getControllerGrip(0);
+            scene.add(controllerGrip1);
+
+            const hand1 = renderer.xr.getHand(0);
+            scene.add(hand1);
+
+            controller1.addEventListener('connected', function ( event ) {
+                const inputSource = event.data;
+                this.gamepad = inputSource.gamepad;
+                // Check if the input source has articulated hand tracking support
+                if (inputSource.hand) {
+                    leftHand = new Hand(hand1, 'left');
+                } else {
+                    // If not, fall back to the default controller model
+                    controllerGrip1.add(controllerModelFactory.createControllerModel(controllerGrip1));
+                }
+            });
+
+            controller1.addEventListener('disconnected', function () {
+                if (leftHand) {
+                    leftHand = null;
+                }
+                // Clear any models
+                controllerGrip1.clear();
+                hand1.clear();
+            });
+
+            // Controller 2
             const controller2 = renderer.xr.getController(1);
             scene.add(controller2);
 
-            const controllerGrip1 = renderer.xr.getControllerGrip(0);
-            const model1 = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0, -1)]), new THREE.LineBasicMaterial({color: 0xff0000, linewidth: 5}));
-            controllerGrip1.add(model1);
-            scene.add(controllerGrip1);
-
             const controllerGrip2 = renderer.xr.getControllerGrip(1);
-            const model2 = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0, -1)]), new THREE.LineBasicMaterial({color: 0x0000ff, linewidth: 5}));
-            controllerGrip2.add(model2);
             scene.add(controllerGrip2);
+
+            const hand2 = renderer.xr.getHand(1);
+            scene.add(hand2);
+
+            controller2.addEventListener('connected', function ( event ) {
+                const inputSource = event.data;
+                this.gamepad = inputSource.gamepad;
+                // Check if the input source has articulated hand tracking support
+                if (inputSource.hand) {
+                    rightHand = new Hand(hand2, 'right');
+                } else {
+                    // If not, fall back to the default controller model
+                    controllerGrip2.add(controllerModelFactory.createControllerModel(controllerGrip2));
+                }
+            });
+
+            controller2.addEventListener('disconnected', function () {
+                if (rightHand) {
+                    rightHand = null;
+                }
+                // Clear any models
+                controllerGrip2.clear();
+                hand2.clear();
+            });
+            // --- End VR Controllers Setup ---
 
             let gripPressed = [false, false];
             let triggerPressed = [false, false];
+            let exitButtonPressed = [false, false];
+            let animationPauseButtonPressed = [false, false];
 
-            controller1.addEventListener('connected', function ( event ) {
-                console.log('Controller 0 Connected.');
-                this.gamepad = event.data.gamepad;
-            } );
             controller1.addEventListener('selectstart', () => { triggerPressed[0] = true; });
             controller1.addEventListener('selectend', () => { triggerPressed[0] = false; });
             controller1.addEventListener('squeezestart', () => { gripPressed[0] = true; });
             controller1.addEventListener('squeezeend', () => { gripPressed[0] = false; });
 
-            controller2.addEventListener('connected', function ( event ) {
-                console.log('Controller 1 Connected.');
-                this.gamepad = event.data.gamepad;
-            } );
             controller2.addEventListener('selectstart', () => { triggerPressed[1] = true; });
             controller2.addEventListener('selectend', () => { triggerPressed[1] = false; });
             controller2.addEventListener('squeezestart', () => { gripPressed[1] = true; });
             controller2.addEventListener('squeezeend', () => { gripPressed[1] = false; });
-            scene.background = new THREE.Color('black');
+            scene.background = currentBackground;
 
             {
                 const skyColor = 0xB1E1FF;  // light blue
                 const groundColor = 0xB97A20;  // brownish orange
                 const intensity = 1;
                 const light = new THREE.HemisphereLight(skyColor, groundColor, intensity);
+                light.name = 'hemisphere_light';
                 scene.add(light);
             }
 
-            {
-                const color = 0xFFFFFF;
-                const intensity = 1;
-                const light = new THREE.DirectionalLight(color, intensity);
-                light.position.set(0, 10, 5);
-                light.target.position.set(-5, 0, 0);
-                scene.add(light);
-                scene.add(light.target);
+            function updateLightForModel(modelBox) {
+                const modelSize = modelBox.getSize(new THREE.Vector3()).length();
+                const modelCenter = modelBox.getCenter(new THREE.Vector3());
+
+                if (settings.threePointLighting) {
+                    const keyLight = scene.getObjectByName('key_light');
+                    const fillLight = scene.getObjectByName('fill_light');
+                    const backLight = scene.getObjectByName('back_light');
+
+                    if (keyLight) {
+                        keyLight.position.copy(modelCenter).add(new THREE.Vector3(modelSize * 0.75, modelSize * 0.5, modelSize));
+                        keyLight.target.position.copy(modelCenter);
+                    }
+                    if (fillLight) {
+                        fillLight.position.copy(modelCenter).add(new THREE.Vector3(-modelSize * 0.75, modelSize * 0.5, modelSize));
+                        fillLight.target.position.copy(modelCenter);
+                    }
+                    if (backLight) {
+                        backLight.position.copy(modelCenter).add(new THREE.Vector3(0, modelSize, -modelSize));
+                        backLight.target.position.copy(modelCenter);
+                    }
+                } else {
+                    const mainLight = scene.getObjectByName('main_light');
+                    if (!mainLight) return;
+
+                    // Adjust light based on its type
+                    if (mainLight.isDirectionalLight || mainLight.isSpotLight) {
+                        mainLight.position.copy(modelCenter).add(new THREE.Vector3(modelSize * 0.5, modelSize, modelSize * 0.5));
+                        mainLight.target.position.copy(modelCenter);
+                    } else if (mainLight.isPointLight) {
+                        mainLight.position.copy(modelCenter).add(new THREE.Vector3(0, modelSize * 0.75, modelSize * 0.75));
+                    }
+
+                    // For lights with a 'distance' property, update it based on model size
+                    if (typeof mainLight.distance !== 'undefined') {
+                        mainLight.distance = modelSize * 3;
+                    }
+                }
             }
+
+            function clearLights() {
+                const lightNames = ['main_light', 'key_light', 'fill_light', 'back_light'];
+                lightNames.forEach(name => {
+                    const light = scene.getObjectByName(name);
+                    if (light) {
+                        if (light.target) {
+                            scene.remove(light.target);
+                        }
+                        scene.remove(light);
+                    }
+                });
+            }
+
+            function updateLightSource() {
+                clearLights(); // Remove all existing lights first
+
+                const color = 0xFFFFFF;
+
+                if (settings.threePointLighting) {
+                    const intensity = settings.threePointLightIntensity;
+                    const keyLight = new THREE.DirectionalLight(color, intensity);
+                    keyLight.name = 'key_light';
+                    scene.add(keyLight);
+                    scene.add(keyLight.target);
+
+                    const fillLight = new THREE.DirectionalLight(color, intensity * 0.5);
+                    fillLight.name = 'fill_light';
+                    scene.add(fillLight);
+                    scene.add(fillLight.target);
+
+                    const backLight = new THREE.DirectionalLight(color, intensity * 0.75);
+                    backLight.name = 'back_light';
+                    scene.add(backLight);
+                    scene.add(backLight.target);
+                } else {
+                    const intensity = settings.lightIntensity;
+                    let light;
+
+                    switch (settings.lightType) {
+                        case 'Directional':
+                            light = new THREE.DirectionalLight(color, intensity);
+                            light.position.set(0, 10, 5);
+                            light.target.position.set(-5, 0, 0);
+                            scene.add(light.target);
+                            break;
+                        case 'Point':
+                            light = new THREE.PointLight(color, intensity, 100); // distance = 100
+                            light.position.set(0, 5, 5);
+                            break;
+                        case 'Spot':
+                            light = new THREE.SpotLight(color, intensity, 100, Math.PI / 8, 0.5, 1); // distance, angle, penumbra, decay
+                            light.position.set(0, 10, 5);
+                            light.target.position.set(0, 0, 0);
+                            scene.add(light.target);
+                            break;
+                        case 'Ambient':
+                            // Ambient light is much stronger globally, so we scale its intensity down to be comparable.
+                            light = new THREE.AmbientLight(color, intensity * 0.5);
+                            break;
+                    }
+                    if (light) {
+                        light.name = 'main_light';
+                        scene.add(light);
+                    }
+                }
+
+                // If a model exists, adjust the new light(s) for it
+                const model = scene.getObjectByName('user_model');
+                if (model) {
+                    const modelBox = new THREE.Box3().setFromObject(model);
+                    updateLightForModel(modelBox);
+                }
+            }
+
+            updateLightSource(); // Initial light setup
 
             const gltfLoader = new GLTFLoader();
             const fbxLoader = new FBXLoader();
             const objLoader = new OBJLoader();
             const stlLoader = new STLLoader();
+            const colladaLoader = new ColladaLoader();
+            const vrmlLoader = new VRMLLoader();
+            const textureLoader = new THREE.TextureLoader();
 
-            function setModel(object) {
+            function loadResource(url, onLoadedCallback, originalFilename = null) {
+                const filename = originalFilename || url.split('/').pop();
+                const extension = filename.split('.').pop().toLowerCase();
+                const imageExtensions = ['jpg', 'jpeg', 'png'];
+
+                const onLoad = (result) => {
+                    if (imageExtensions.includes(extension)) {
+                        result.mapping = THREE.EquirectangularReflectionMapping;
+                        result.colorSpace = THREE.SRGBColorSpace;
+                        scene.background = result;
+                        scene.environment = result;
+                        currentBackground = result; // Update current background
+                    } else {
+                        let object;
+                        let animations = [];
+                        switch (extension) {
+                            case 'gltf':
+                            case 'glb':
+                            case 'dae': // Collada
+                                object = result.scene;
+                                animations = result.animations || [];
+                                break;
+                            case 'stl': {
+                                const material = new THREE.MeshStandardMaterial({color: 0xAAAAAA, metalness: 0.1, roughness: 0.75});
+                                object = new THREE.Mesh(result, material);
+                                object.rotation.set(-Math.PI / 2, 0, 0); // Correct for Z-up vs Y-up coordinate systems
+                                break;
+                            }
+                            case 'fbx':
+                            case 'obj':
+                            case 'wrl': // VRML
+                                object = result;
+                                animations = result.animations || [];
+                                break;
+                        }
+                        setModel(object, animations);
+                    }
+                    if (onLoadedCallback) onLoadedCallback();
+                };
+
+                const onError = (error) => {
+                    console.error(`An error happened while loading ${url}:`, error);
+                    alert(`Could not load resource: ${filename}. See console for details.`);
+                    if (onLoadedCallback) onLoadedCallback();
+                };
+
+                if (imageExtensions.includes(extension)) {
+                    textureLoader.load(url, onLoad, undefined, onError);
+                    return;
+                }
+
+                let loader;
+                switch (extension) {
+                    case 'gltf':
+                    case 'glb':
+                        (async () => {
+                            const conversionMessage = document.getElementById('conversion-message');
+                            try {
+                                let buffer;
+                                if (url instanceof ArrayBuffer) {
+                                    buffer = url;
+                                } else {
+                                    const response = await fetch(url);
+                                    buffer = await response.arrayBuffer();
+                                }
+
+                                if (modelNeedsConversion(buffer)) {
+                                    conversionMessage.style.display = 'block';
+                                    const io = new WebIO().registerExtensions(KHRONOS_EXTENSIONS);
+                                    const document = await io.readBinary(new Uint8Array(buffer));
+                                    await document.transform(metalRough());
+                                    const glb = await io.writeBinary(document);
+                                    conversionMessage.style.display = 'none';
+
+                                    // The transformed model is in a Uint8Array. Use parse() directly.
+                                    // This avoids issues with blob URLs and texture loading.
+                                    // GLTFLoader.parse expects an ArrayBuffer, so we pass the buffer property of the Uint8Array.
+                                    gltfLoader.parse(glb.buffer, '', onLoad, onError);
+                                } else {
+                                    // if it's a buffer, we need to parse it, otherwise load from url
+                                    if (url instanceof ArrayBuffer) {
+                                        gltfLoader.parse(url, '', (gltf) => onLoad(gltf), onError);
+                                    } else {
+                                        gltfLoader.load(url, onLoad, undefined, onError);
+                                    }
+                                }
+                            } catch (e) {
+                                conversionMessage.style.display = 'none';
+                                console.error('Error loading glTF model:', e);
+                                alert(`Failed to load glTF model: ${e.message}. See console for details.`);
+                                if (onLoadedCallback) onLoadedCallback();
+                            }
+                        })();
+                        return; // Don't use the generic loader.load() at the end
+                    case 'fbx':
+                        loader = fbxLoader;
+                        break;
+                    case 'obj':
+                        loader = objLoader;
+                        break;
+                    case 'stl':
+                        loader = stlLoader;
+                        break;
+                    case 'dae':
+                        loader = colladaLoader;
+                        break;
+                    case 'wrl':
+                        loader = vrmlLoader;
+                        break;
+                    default:
+                        alert(`Unsupported file type: .${extension}`);
+                        if (onLoadedCallback) onLoadedCallback();
+                        return;
+                }
+
+                loader.load(url, onLoad, undefined, onError);
+            }
+
+            function setModel(object, animations = []) {
+                if (mixer) {
+                    mixer.stopAllAction();
+                    mixer = null;
+                }
+
                 // The object could be a Group from GLTF/FBX/OBJ or a Mesh from STL
 
-                // Ensure the model rotates around its center
+                // Ensure the model scales from the bottom
                 const box = new THREE.Box3().setFromObject(object);
                 const center = box.getCenter(new THREE.Vector3());
-                object.position.sub(center); // Center the model's geometry
+                object.position.x -= center.x;
+                object.position.y -= box.min.y;
+                object.position.z -= center.z;
 
                 const modelGroup = new THREE.Group();
                 modelGroup.name = 'user_model';
@@ -281,6 +1026,14 @@
                 }
                 scene.add(modelGroup);
 
+                // Pass the newly loaded model to the hands for collision detection
+                if (leftHand) {
+                    leftHand.setTargetModel(modelGroup);
+                }
+                if (rightHand) {
+                    rightHand.setTargetModel(modelGroup);
+                }
+
                 // center and frame the new model group
                 const newBox = new THREE.Box3().setFromObject(modelGroup);
                 const boxSize = newBox.getSize(new THREE.Vector3()).length();
@@ -291,61 +1044,109 @@
                 controls.maxDistance = boxSize * 10;
                 controls.target.copy(boxCenter);
                 controls.update();
+
+                updateLightForModel(newBox);
+
+                if (animations && animations.length) {
+                    mixer = new THREE.AnimationMixer(object);
+                    const action = mixer.clipAction(animations[0]);
+                    action.play();
+                }
+                updateTwoSided();
             }
 
-            const fileInput = document.getElementById('file-input');
-            fileInput.addEventListener('change', (event) => {
-                const file = event.target.files[0];
-                if (!file) return;
+            const browseButton = document.getElementById('browse-button');
 
-                const filename = file.name.toLowerCase();
-                const extension = filename.split('.').pop();
-                const reader = new FileReader();
-
-                reader.onload = (e) => {
-                    const contents = e.target.result;
-
-                    try {
-                        if (extension === 'gltf' || extension === 'glb') {
-                            // GLTFLoader is async
-                            gltfLoader.parse(contents, '', (gltf) => {
-                                setModel(gltf.scene);
-                            }, (error) => {
-                                alert(`An error occurred parsing the GLTF model: ${error.message}`);
-                                console.error(error);
-                            });
-                        } else {
-                            // Other loaders are sync
-                            let object;
-                            switch (extension) {
-                                case 'fbx':
-                                    object = fbxLoader.parse(contents);
-                                    break;
-                                case 'obj':
-                                    object = objLoader.parse(contents);
-                                    break;
-                                case 'stl':
-                                    const geometry = stlLoader.parse(contents);
-                                    const material = new THREE.MeshStandardMaterial({color: 0xAAAAAA, metalness: 0.1, roughness: 0.75});
-                                    object = new THREE.Mesh(geometry, material);
-                                    break;
-                                default:
-                                    alert(`Unsupported file type: .${extension}`);
-                                    return;
-                            }
-                            setModel(object);
-                        }
-                    } catch (err) {
-                        alert(`An error occurred loading the file: ${err.message}`);
-                        console.error(err);
-                    }
-                };
-
-                const binaryExtensions = ['glb', 'stl', 'fbx'];
-                if (binaryExtensions.includes(extension)) {
-                    reader.readAsArrayBuffer(file);
+            async function handleFile(file) {
+                const extension = file.name.split('.').pop().toLowerCase();
+                if (extension === 'gltf' || extension === 'glb') {
+                    const buffer = await file.arrayBuffer();
+                    loadResource(buffer, () => {}, file.name);
                 } else {
-                    reader.readAsText(file);
+                    const url = URL.createObjectURL(file);
+                    loadResource(url, () => URL.revokeObjectURL(url), file.name);
+                }
+            }
+
+            browseButton.addEventListener('click', async () => {
+                if (window.showOpenFilePicker) {
+                    try {
+                        const pickerOpts = {
+                            types: [
+                                {
+                                    description: '3D Models and Images',
+                                    accept: {
+                                        'model/gltf-binary': ['.glb'],
+                                        'model/gltf+json': ['.gltf'],
+                                        'model/x-fbx': ['.fbx'],
+                                        'model/obj': ['.obj'],
+                                        'model/stl': ['.stl'],
+                                        'image/jpeg': ['.jpg', '.jpeg'],
+                                        'image/png': ['.png'],
+                                    }
+                                },
+                            ],
+                            excludeAcceptAllOption: true,
+                            multiple: false
+                        };
+                        const [fileHandle] = await window.showOpenFilePicker(pickerOpts);
+                        const file = await fileHandle.getFile();
+                        handleFile(file);
+                    } catch (err) {
+                        if (err.name !== 'AbortError') {
+                            alert(`Error opening file: ${err.message}`);
+                            console.error(err);
+                        }
+                    }
+                }
+            });
+
+            const browseImageButton = document.getElementById('browse-image-button');
+
+            async function handleImageFile(file) {
+                const url = URL.createObjectURL(file);
+                textureLoader.load(url, (texture) => {
+                    URL.revokeObjectURL(url); // Revoke URL after loading
+                    texture.colorSpace = THREE.SRGBColorSpace;
+                    const aspectRatio = texture.image.width / texture.image.height;
+                    const imageHeight = 2; // Arbitrary height
+                    const imageWidth = imageHeight * aspectRatio;
+                    const geometry = new THREE.PlaneGeometry(imageWidth, imageHeight);
+                    const material = new THREE.MeshStandardMaterial({ map: texture, side: THREE.DoubleSide, transparent: true });
+                    const mesh = new THREE.Mesh(geometry, material);
+                    setModel(mesh);
+                }, undefined, (error) => {
+                    URL.revokeObjectURL(url);
+                    console.error(`An error happened while loading ${file.name}:`, error);
+                    alert(`Could not load image: ${file.name}. See console for details.`);
+                });
+            }
+
+            browseImageButton.addEventListener('click', async () => {
+                if (window.showOpenFilePicker) {
+                    try {
+                        const pickerOpts = {
+                            types: [
+                                {
+                                    description: 'Images',
+                                    accept: {
+                                        'image/jpeg': ['.jpg', '.jpeg'],
+                                        'image/png': ['.png'],
+                                    }
+                                },
+                            ],
+                            excludeAcceptAllOption: true,
+                            multiple: false
+                        };
+                        const [fileHandle] = await window.showOpenFilePicker(pickerOpts);
+                        const file = await fileHandle.getFile();
+                        handleImageFile(file);
+                    } catch (err) {
+                        if (err.name !== 'AbortError') {
+                            alert(`Error opening file: ${err.message}`);
+                            console.error(err);
+                        }
+                    }
                 }
             });
 
@@ -354,43 +1155,9 @@
                 if (event.target.tagName !== 'BUTTON') return;
 
                 const modelPath = event.target.dataset.path;
-                if (!modelPath) return;
-
-                const extension = modelPath.split('.').pop().toLowerCase();
-                let loader;
-                let onLoad;
-
-                switch (extension) {
-                    case 'gltf':
-                    case 'glb':
-                        loader = gltfLoader;
-                        onLoad = (gltf) => setModel(gltf.scene);
-                        break;
-                    case 'fbx':
-                        loader = fbxLoader;
-                        onLoad = (object) => setModel(object);
-                        break;
-                    case 'obj':
-                        loader = objLoader;
-                        onLoad = (object) => setModel(object);
-                        break;
-                    case 'stl':
-                        loader = stlLoader;
-                        onLoad = (geometry) => {
-                            const material = new THREE.MeshStandardMaterial({color: 0xAAAAAA, metalness: 0.1, roughness: 0.75});
-                            const mesh = new THREE.Mesh(geometry, material);
-                            setModel(mesh);
-                        };
-                        break;
-                    default:
-                        alert(`Unsupported file type for sample model: .${extension}`);
-                        return;
+                if (modelPath) {
+                    loadResource(modelPath);
                 }
-
-                loader.load(modelPath, onLoad, undefined, (error) => {
-                    console.error(`An error happened while loading the model ${modelPath}:`, error);
-                    alert(`Could not load model ${modelPath}. See console for details.`);
-                });
             });
 
             function frameArea(sizeToFitOnScreen, boxSize, boxCenter, camera) {
@@ -404,8 +1171,8 @@
                   .normalize();
 
               camera.position.copy(direction.multiplyScalar(distance).add(boxCenter));
-              camera.near = boxSize / 100;
-              camera.far = boxSize * 100;
+              camera.near = 0.01;
+              camera.far = boxSize * 10;
               camera.updateProjectionMatrix();
               camera.lookAt(boxCenter.x, boxCenter.y, boxCenter.z);
             }
@@ -425,6 +1192,7 @@
 
             const clock = new THREE.Clock();
 
+
             function handleControllerInput(timeDelta) {
                 if (renderer.xr.isPresenting) {
                     for (let i = 0; i < 2; i++) {
@@ -435,28 +1203,30 @@
                             if (model) {
                                 const x = controller.gamepad.axes[2];
                                 const z = controller.gamepad.axes[3];
-                                const deadzone = 0.2;
+                                const deadzone = 0.25;
 
-                                if (triggerPressed[i]) {
-                                    // Trigger: Rotate Y and Move Y
-                                    const rotationSpeed = 1.5; // radians per second
-                                    const verticalSpeed = 2; // meters per second
-                                    if (Math.abs(x) > deadzone) {
-                                        model.rotation.y -= x * rotationSpeed * timeDelta;
-                                    }
-                                    if (Math.abs(z) > deadzone) {
-                                        model.position.y -= z * verticalSpeed * timeDelta;
-                                    }
-                                } else if (gripPressed[i]) {
-                                    // Grip: Scale
+                                if (triggerPressed[i] && gripPressed[i]) {
+                                    // Grip + Trigger: Scale
                                     const scaleSpeed = 0.5;
                                     if (Math.abs(z) > deadzone) {
                                         const scaleFactor = 1.0 - z * scaleSpeed * timeDelta;
                                         model.scale.multiplyScalar(scaleFactor);
                                     }
+                                } else if (triggerPressed[i]) {
+                                    // Trigger: Move Y
+                                    const verticalSpeed = 1.0;
+                                    if (Math.abs(z) > deadzone) {
+                                        model.position.y -= z * verticalSpeed * timeDelta;
+                                    }
+                                } else if (gripPressed[i]) {
+                                    // Grip: Rotate Y
+                                    const rotationSpeed = 1.5; // radians per second
+                                    if (Math.abs(x) > deadzone) {
+                                        model.rotation.y -= x * rotationSpeed * timeDelta;
+                                    }
                                 } else {
-                                    // No button: Translate X/Z on the floor
-                                    const moveSpeed = 2; // meters per second
+                                    // No button: Translate X/Z on the floor (slower)
+                                    const moveSpeed = 1.0; // meters per second
                                     if (Math.abs(x) > deadzone) {
                                         model.position.x += x * moveSpeed * timeDelta;
                                     }
@@ -466,22 +1236,54 @@
                                 }
                             }
 
-                            // Exit VR button is independent of other controls
+                            // A/X button (usually index 4) for pausing/playing animation
                             if (controller.gamepad.buttons.length > 4 && controller.gamepad.buttons[4].pressed) {
-                                const session = renderer.xr.getSession();
-                                if (session) {
-                                    session.end();
+                                if (!animationPauseButtonPressed[i] && mixer) {
+                                    animationPauseButtonPressed[i] = true;
+                                    mixer.timeScale = mixer.timeScale === 0 ? 1 : 0; // Toggle pause
                                 }
+                            } else {
+                                animationPauseButtonPressed[i] = false;
+                            }
+
+                            // Exit VR button is independent of other controls
+                            if (controller.gamepad.buttons.length > 5 && controller.gamepad.buttons[5].pressed) {
+                                if (!exitButtonPressed[i]) {
+                                    exitButtonPressed[i] = true;
+                                    // Find the currently active button (VR or AR) and click it
+                                    // This ensures the same exit logic is used everywhere.
+                                    const vrButton = document.getElementById('VRButton');
+                                    const arButton = document.getElementById('ARButton');
+                                    console.log("Exit button pressed. VR button text:", vrButton?.textContent, "AR button text:", arButton?.textContent);
+                                    if (vrButton && vrButton.textContent.includes('Exit')) {
+                                        console.log("Clicking VR button to exit.");
+                                        vrButton.click();
+                                    } else if (arButton && arButton.textContent.includes('Exit')) {
+                                        console.log("Clicking AR button to exit.");
+                                        arButton.click();
+                                    }
+                                }
+                            } else {
+                                exitButtonPressed[i] = false;
                             }
                         }
                     }
                 }
             }
 
-            function render() {
-                const delta = clock.getDelta();
-                handleControllerInput(delta);
+            function render(time, frame) {
+                if (renderer.xr.isPresenting && frame) {
+                    const referenceSpace = renderer.xr.getReferenceSpace();
+                    if (leftHand) leftHand.update(frame, referenceSpace);
+                    if (rightHand) rightHand.update(frame, referenceSpace);
+                }
 
+
+                const delta = clock.getDelta();
+                if (mixer) {
+                    mixer.update(delta);
+                }
+                handleControllerInput(delta);
                 if (resizeRendererToDisplaySize(renderer)) {
                     const canvas = renderer.domElement;
                     camera.aspect = canvas.clientWidth / canvas.clientHeight;
@@ -491,6 +1293,14 @@
             }
 
             renderer.setAnimationLoop(render);
+
+            // Collapsible sections logic
+            document.querySelectorAll('.collapsible-header').forEach(header => {
+                header.addEventListener('click', () => {
+                    const container = header.closest('.collapsible-container');
+                    container.classList.toggle('collapsed');
+                });
+            });
         }
 
         window.populateSampleModels = function(modelList) {
@@ -502,13 +1312,15 @@
             }
             modelList.forEach(modelPath => {
                 const button = document.createElement('button');
-                button.textContent = modelPath.split('/').pop();
+                const filename = modelPath.split('/').pop();
+                button.textContent = filename;
+                button.title = filename; // Use the full filename as the tooltip.
                 button.dataset.path = modelPath;
                 listContainer.appendChild(button);
             });
         }
 
-        fetch('get_models.php')
+        fetch('get_models.php', { cache: 'no-store' })
             .then(response => {
                 if (!response.ok) {
                     throw new Error('Network response was not ok');
@@ -518,10 +1330,34 @@
             .then(populateSampleModels)
             .catch(error => {
                 console.error('Error fetching sample models:', error);
+                document.getElementById('sample-models-header').textContent = 'Offline';
                 populateSampleModels(null);
             });
 
-        main();
+        window.addEventListener('DOMContentLoaded', main);
+    </script>
+    <script>
+        fetch('version.json')
+            .then(response => response.json())
+            .then(data => {
+                const versionDiv = document.getElementById('version-info');
+                if (versionDiv) {
+                    versionDiv.textContent = `Version: ${data.version}`;
+                }
+            })
+            .catch(err => console.error('Failed to load version:', err));
+
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js')
+                    .then(registration => {
+                        console.log('Service Worker registered with scope:', registration.scope);
+                    })
+                    .catch(error => {
+                        console.error('Service Worker registration failed:', error);
+                    });
+            });
+        }
     </script>
 </body>
 </html>
